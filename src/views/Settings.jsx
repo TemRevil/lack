@@ -544,34 +544,56 @@ const Settings = () => {
                     onWheel={handleTabWheel}
                     style={{
                         display: 'flex',
-                        gap: '0.75rem',
+                        gap: '0.5rem',
                         overflowX: 'auto',
-                        padding: '0 0.25rem 0.5rem 0.25rem',
+                        padding: '0.5rem',
                         flexShrink: 0,
-                        borderBottom: '1px solid var(--border-color)',
-                        scrollbarWidth: 'none',  /* Firefox */
-                        msOverflowStyle: 'none'  /* IE 10+ */
+                        background: 'var(--bg-input)',
+                        borderRadius: 'var(--radius-pill)',
+                        margin: '0 auto',
+                        width: 'fit-content',
+                        maxWidth: '100%',
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                        border: '1px solid var(--border-color)',
                     }}>
                     <style>{`
                         .settings-tabs-container::-webkit-scrollbar { display: none; }
+                        .settings-tab-btn {
+                            transition: var(--transition);
+                            position: relative;
+                        }
+                        .settings-tab-btn.active {
+                            background: var(--bg-surface) !important;
+                            color: var(--accent-color) !important;
+                            box-shadow: var(--shadow-sm);
+                        }
+                        .settings-tab-btn:hover:not(.active) {
+                            background: rgba(0,0,0,0.05);
+                        }
+                        [data-theme="dark"] .settings-tab-btn:hover:not(.active) {
+                            background: rgba(255,255,255,0.05);
+                        }
                     `}</style>
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
-                            className={`btn settings-tab-btn-${tab.id} ${activeTab === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+                            className={`btn settings-tab-btn settings-tab-btn-${tab.id} ${activeTab === tab.id ? 'active' : ''}`}
                             onClick={() => setActiveTab(tab.id)}
                             style={{
                                 whiteSpace: 'nowrap',
-                                gap: '0.5rem',
-                                padding: '0.75rem 1.25rem',
-                                opacity: activeTab === tab.id ? 1 : 0.7,
-                                fontWeight: activeTab === tab.id ? 700 : 500,
+                                gap: '0.6rem',
+                                padding: '0.6rem 1.5rem',
+                                fontSize: '0.9rem',
+                                fontWeight: 700,
                                 borderRadius: 'var(--radius-pill)',
                                 flexShrink: 0,
-                                border: activeTab === tab.id ? 'none' : '1px solid transparent'
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
                             }}
                         >
-                            {tab.icon}
+                            {React.cloneElement(tab.icon, { size: 18, strokeWidth: activeTab === tab.id ? 2.5 : 2 })}
                             <span>{tab.label}</span>
                         </button>
                     ))}
