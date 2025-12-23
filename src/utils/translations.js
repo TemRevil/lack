@@ -139,6 +139,12 @@ export const translations = {
         addNewCustomer: 'إضافة عميل جديد',
         chooseDate: 'اختر التاريخ...',
         today: 'اليوم',
+        version: 'الإصدار',
+        checkForUpdates: 'البحث عن تحديثات',
+        autoCheckUpdates: 'البحث التلقائي عن تحديثات برمجية',
+        systemVersion: 'إصدار النظام الحالي',
+        updateAvailable: 'تحديث جديد متاح! جاري التحميل...',
+        updateDownloaded: 'تم تحميل التحديث. سيتم التثبيت عند إغلاق البرنامج.',
     },
     en: {
         appName: 'Gunter',
@@ -280,5 +286,11 @@ export const translations = {
         addNewCustomer: 'Add New Customer',
         chooseDate: 'Choose Date...',
         today: 'Today',
+        version: 'Version',
+        checkForUpdates: 'Check for Updates',
+        autoCheckUpdates: 'Auto-check for updates',
+        systemVersion: 'Current System Version',
+        updateAvailable: 'New update available! Downloading...',
+        updateDownloaded: 'Update downloaded. It will be installed on restart.',
     }
 };

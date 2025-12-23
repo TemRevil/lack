@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
 function createWindow() {
     const isDev = !app.isPackaged;
@@ -51,8 +52,40 @@ ipcMain.on('show-notification', (event, { title, body }) => {
     }
 });
 
+ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+});
+
+ipcMain.on('check-for-updates-manual', () => {
+    autoUpdater.checkForUpdatesAndNotify();
+});
+
 app.whenReady().then(() => {
     createWindow();
+
+    // Check for updates
+    if (app.isPackaged) {
+        autoUpdater.logger = console;
+        autoUpdater.checkForUpdatesAndNotify();
+
+        autoUpdater.on('update-available', () => {
+            const mainWindow = BrowserWindow.getAllWindows()[0];
+            if (mainWindow) {
+                mainWindow.webContents.send('update-message', 'Update available');
+            }
+        });
+
+        autoUpdater.on('update-downloaded', () => {
+            const mainWindow = BrowserWindow.getAllWindows()[0];
+            if (mainWindow) {
+                mainWindow.webContents.send('update-downloaded');
+            }
+        });
+
+        autoUpdater.on('error', (err) => {
+            console.error('Update error:', err);
+        });
+    }
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

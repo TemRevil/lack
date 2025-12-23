@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "clsx": "^2.0.0",
+    "electron-updater": "^6.6.2",
     "firebase": "^12.7.0",
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",
@@ -53,6 +54,13 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "TemRevil",
+        "repo": "gunter"
+      }
+    ]
   }
 }

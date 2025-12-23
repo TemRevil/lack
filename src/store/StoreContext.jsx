@@ -36,7 +36,8 @@ const defaultData = {
             authOnAddPart: false,
             authOnUpdatePart: false,
             authOnAddOperation: false
-        }
+        },
+        autoCheckUpdates: true
     }
 };
 

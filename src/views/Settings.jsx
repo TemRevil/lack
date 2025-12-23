@@ -120,6 +120,25 @@ const Settings = () => {
     } = useContext(StoreContext);
 
     const [activeTab, setActiveTab] = useState('general');
+    const [appVersion, setAppVersion] = useState('1.0.0');
+
+    React.useEffect(() => {
+        if (window.electron?.getAppVersion) {
+            window.electron.getAppVersion().then(v => setAppVersion(v));
+        }
+
+        if (window.electron?.onUpdateMessage) {
+            window.electron.onUpdateMessage(() => {
+                window.showToast?.(t('updateAvailable'), 'info');
+            });
+        }
+
+        if (window.electron?.onUpdateDownloaded) {
+            window.electron.onUpdateDownloaded(() => {
+                window.showToast?.(t('updateDownloaded'), 'success');
+            });
+        }
+    }, [t]);
 
     const handleReceiptUpdate = (e) => {
         e.preventDefault();
@@ -259,6 +278,48 @@ const Settings = () => {
                                 <div className={`toggle-switch ${settings?.security?.showSessionBalance ? 'active' : ''}`}>
                                     <div className="toggle-knob" />
                                 </div>
+                            </div>
+                        </section>
+
+                        <section className="settings-section-card" style={{ padding: '1.5rem' }}>
+                            <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
+                                <div className="settings-section-icon security" style={{ background: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-color)', width: '40px', height: '40px' }}>
+                                    <Download size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('checkForUpdates')}</h3>
+                                </div>
+                            </header>
+                            <div className="settings-item-row" onClick={() => {
+                                setData(prev => ({
+                                    ...prev,
+                                    settings: { ...prev.settings, autoCheckUpdates: !prev.settings.autoCheckUpdates }
+                                }));
+                            }} style={{ padding: '0.75rem', marginBottom: '1rem' }}>
+                                <div>
+                                    <span className="settings-item-label">{t('autoCheckUpdates')}</span>
+                                </div>
+                                <div className={`toggle-switch ${settings.autoCheckUpdates ? 'active' : ''}`}>
+                                    <div className="toggle-knob" />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '0.25rem' }}>
+                                    {t('systemVersion')}: <strong style={{ color: 'var(--accent-color)' }}>v{appVersion}</strong>
+                                </div>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                                    onClick={() => {
+                                        if (window.electron?.checkForUpdates) {
+                                            window.electron.checkForUpdates();
+                                            window.showToast?.(settings.language === 'ar' ? 'جاري البحث عن تحديثات...' : 'Checking for updates...', 'info');
+                                        }
+                                    }}
+                                >
+                                    <Download size={18} />
+                                    {t('checkForUpdates')}
+                                </button>
                             </div>
                         </section>
                     </div>
@@ -531,7 +592,7 @@ const Settings = () => {
                     borderTop: '1px solid var(--border-color)',
                     marginTop: 'auto'
                 }}>
-                    {settings.language === 'ar' ? 'إصدار النظام' : 'Gunter Management System'} v1.1.0
+                    {settings.language === 'ar' ? 'إصدار النظام' : 'Gunter Management System'} v{appVersion}
                 </div>
             </div>
         </div>
