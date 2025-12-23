@@ -119,18 +119,21 @@ try {
         mainWindow.webContents.send('update-log', '--- SCRIPT CONTENT END ---');
     }
 
-    // Launch PowerShell with the script file
-    const fullCommand = `start powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`;
-
+    // Launch PowerShell with the script file using spawn for proper argument handling
     sendLog('Launching PowerShell script...');
+    sendLog(`Script path: ${scriptPath}`);
 
-    exec(fullCommand, (error) => {
-        if (error) {
-            sendLog(`Failed to launch PowerShell: ${error.message}`);
-        } else {
-            sendLog('PowerShell script launched successfully.');
-        }
-    });
+    spawn('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-WindowStyle', 'Normal',
+        '-File', scriptPath
+    ], {
+        detached: true,
+        stdio: 'ignore'
+    }).unref();
+
+    sendLog('PowerShell process started.');
 });
 
 app.whenReady().then(() => {
