@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0-blue.svg?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.1.0-blue.svg?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/License-Proprietary-red.svg?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/badge/Tech-React_%2B_Electron-61DAFB?style=for-the-badge&logo=react" alt="Tech">
   <img src="https://img.shields.io/badge/Database-Firestore-FFCA28?style=for-the-badge&logo=firebase" alt="Database">
@@ -15,7 +15,7 @@
 
 ### 🌟 Overview
 
-**Gunter** is a premium workshop management solution designed for modern mechanical businesses and spare part stores. It combines a state-of-the-art user interface with robust security and real-time cloud synchronization.
+**Gunter** is a premium workshop management solution designed for modern mechanical businesses and spare part stores. It combines a state-of-the-art user interface with robust security and real-time cloud synchronization. Originally built to streamline operations, it now serves as a comprehensive ERP for automotive service centers.
 
 <p align="center">
   <img src="public/assets/readme/mockup.png" alt="Gunter Dashboard" width="700">
@@ -27,13 +27,22 @@
 
 | Feature | Description |
 | :--- | :--- |
-| **🌍 Multi-language** | Seamless toggle between **Arabic** and **English** with full RTL support. |
-| **📈 Operations Hub** | Real-time tracking of sales, payments, and debts with detailed history. |
+| **🌍 Multi-language** | Seamless toggle between **Arabic** and **English** with full RTL support and localized calendars. |
+| **📈 Operations Hub** | Real-time tracking of sales, payments, and debts with detailed history and matching logic. |
 | **📦 Smart Inventory** | Automated stock monitoring with low-inventory alerts and threshold management. |
-| **👥 CRM** | Centralized customer database with transaction logs and balance tracking. |
-| **🧾 Professional Receipts** | Customizable thermal receipt printing for every transaction. |
+| **👥 CRM** | Centralized customer database with automated balance tracking and transaction logs. |
+| **🧾 Professional Receipts** | Customizable thermal receipt printing with business branding. |
 | **🔒 Advanced Security** | Tiered access control (User/Admin) and encrypted background license validation. |
-| **☁️ Firestore Sync** | Real-time backup and cloud synchronization for license keys and system control. |
+| **☁️ Firestore Sync** | Real-time cloud synchronization for operations, customers, and licensing. |
+
+---
+
+### 🆕 What's New in v1.1.0
+
+- **📅 Localized Date Picker**: Fully internationalized calendar with Arabic/English month and day names.
+- **🔍 Smart Matching**: Enhanced customer identification logic that handles Arabic character variations (Normalization).
+- **🛡️ Secure Build**: Improved production build process for Windows with NSIS installer support.
+- **✨ UI Polish**: Refined dropdown menus with smart-flipping logic to prevent screen clipping in tables.
 
 ---
 
@@ -42,43 +51,43 @@
 - **Frontend:** React 18 & Vite
 - **Desktop Wrapper:** Electron
 - **Backend/DB:** Firebase Firestore & Auth
-- **Styling:** Modern Vanilla CSS (Glassmorphism & Variables)
+- **Styling:** Modern Vanilla CSS (Glassmorphism & CSS Variables)
 - **Icons:** Lucide-React
 
 ---
 
 ### 📦 Installation & Build
 
-#### Dev Environment
+#### Development Environment
 ```bash
-# Clone the repo
+# Clone the repository
 git clone https://github.com/TemRevil/gunter.git
 
 # Install dependencies
 npm install
 
-# Run Dev Server
+# Run Vite development server
 npm run dev
 
-# Run Electron
+# Launch Electron application
 npm run electron
 ```
 
 #### Production Build
 ```bash
-# Build the application
+# Generate the production installer (Setup.exe)
 npm run electron:build
 ```
-*Note: The production executable is generated in the `release/win-unpacked` directory.*
+*Note: The setup executable will be generated in the `release/` directory.*
 
 ---
 
-### �️ Security & Licensing
+### 🔒 Security & Licensing
 
-The system features an enterprise-grade licensing layer:
-- **Auto-Login**: Transparent administrative authentication for database safety.
-- **One-Time Activation**: Unique hardware-linked keys validated via Firestore.
-- **Role Permissions**: Sensitive actions (deletion, settings) require administrative override.
+The system implements a multi-layered security architecture:
+- **Administrative Protection**: Sensitive data (Settings/Deletions) requires Admin password override.
+- **Transparent Auth**: Automatic background authentication secures the Firestore connection.
+- **Hardware-Linked Licensing**: Activation keys are validated against unique IDs to prevent unauthorized distribution.
 
 ---
 
