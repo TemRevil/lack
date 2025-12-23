@@ -34,3 +34,5 @@ backup_*.txt
 
 generated_keys.txt
 release/
+# backup folders
+vanilla-backup/

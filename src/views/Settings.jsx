@@ -133,8 +133,11 @@ const Settings = () => {
                     const msg = t('updateAvailable').replace('%v', data.version);
                     window.showToast?.(msg, 'info');
                 } else if (data.type === 'latest') {
-                    const msg = t('upToDate').replace('%v', data.version);
+                    const msg = t('upToDate').replace('%v', data.version) +
+                        (settings.language === 'ar' ? `\n(نسختك: v${appVersion})` : `\n(Your version: v${appVersion})`);
                     window.showToast?.(msg, 'success');
+                } else if (data.type === 'error') {
+                    window.showToast?.(`${t('error')}: ${data.message}`, 'danger');
                 }
             });
         }

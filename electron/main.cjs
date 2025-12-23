@@ -108,6 +108,13 @@ app.whenReady().then(() => {
 
     autoUpdater.on('error', (err) => {
         console.error('Update error:', err);
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        if (mainWindow) {
+            mainWindow.webContents.send('update-message', {
+                type: 'error',
+                message: err.message
+            });
+        }
     });
 
     // Check on startup if autoCheckUpdates is enabled or we are in build
