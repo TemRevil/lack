@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 
 function createWindow() {
     const isDev = !app.isPackaged;
@@ -57,15 +57,23 @@ ipcMain.handle('get-app-version', () => {
 });
 
 ipcMain.on('execute-update', (event, { url }) => {
-    console.log('Update execution started...');
-    console.log('Target URL:', url);
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    const sendLog = (msg) => {
+        console.log(msg);
+        if (mainWindow) {
+            mainWindow.webContents.send('update-log', msg);
+        }
+    };
+
+    sendLog('Update execution started...');
+    sendLog(`Target URL: ${url}`);
 
     const tempPath = app.getPath('temp');
     const installerPath = path.join(tempPath, 'GunterSetup.exe');
     const currentPid = process.pid;
 
-    console.log('Temp path:', tempPath);
-    console.log('Current PID:', currentPid);
+    sendLog(`Temp path: ${tempPath}`);
+    sendLog(`Current PID: ${currentPid}`);
 
     // Command specifically formatted for a visible PowerShell window
     const psCommand = `
@@ -94,19 +102,26 @@ ipcMain.on('execute-update', (event, { url }) => {
         }
     `;
 
-    console.log('Final PowerShell command generated.');
+    sendLog('Final PowerShell command generated.');
+
+    // Send the terminal code to the app console
+    if (mainWindow) {
+        mainWindow.webContents.send('update-log', '--- TERMINAL CODE START ---');
+        mainWindow.webContents.send('update-log', psCommand.trim());
+        mainWindow.webContents.send('update-log', '--- TERMINAL CODE END ---');
+    }
 
     // Use 'start' to ensure a new visible window opens
-    const fullCommand = `start powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand.replace(/"/g, '`"').replace(/\n/g, '')}"`;
+    const powershellArgs = psCommand.replace(/"/g, '`"').replace(/\n/g, ' ');
+    const fullCommand = `start powershell -NoProfile -ExecutionPolicy Bypass -Command "${powershellArgs}"`;
 
-    console.log('Launching PowerShell window...');
+    sendLog('Launching PowerShell window...');
 
-    const { exec } = require('child_process');
     exec(fullCommand, (error) => {
         if (error) {
-            console.error('Failed to launch PowerShell:', error);
+            sendLog(`Failed to launch PowerShell: ${error.message}`);
         } else {
-            console.log('PowerShell window launched successfully.');
+            sendLog('PowerShell window launched successfully.');
         }
     });
 });

@@ -71,6 +71,14 @@ function App() {
         }
     }, [isLoggedIn, settings.autoCheckUpdates]);
 
+    useEffect(() => {
+        if (window.electron?.onUpdateLog) {
+            window.electron.onUpdateLog((msg) => {
+                console.log(`[Update Operation] ${msg}`);
+            });
+        }
+    }, []);
+
     const renderTabContent = () => {
         switch (currentTab) {
             case 'operations': return <Operations />;

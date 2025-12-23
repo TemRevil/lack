@@ -14,5 +14,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Get app version from package.json
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     // Execute auto-update via terminal
-    executeUpdate: (url) => ipcRenderer.send('execute-update', { url })
+    executeUpdate: (url) => ipcRenderer.send('execute-update', { url }),
+    // Listen for update logs
+    onUpdateLog: (callback) => ipcRenderer.on('update-log', (_event, value) => callback(value))
 });
