@@ -1,7 +1,6 @@
 const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
-const { spawn, exec } = require('child_process');
-const fs = require('fs');
+const { spawn } = require('child_process');
 
 function createWindow() {
     const isDev = !app.isPackaged;
@@ -69,71 +68,29 @@ ipcMain.on('execute-update', (event, { url }) => {
     sendLog('Update execution started...');
     sendLog(`Target URL: ${url}`);
 
-    const tempPath = app.getPath('temp');
-    const installerPath = path.join(tempPath, 'GunterSetup.exe');
-    const scriptPath = path.join(tempPath, 'update_script.ps1');
     const currentPid = process.pid;
+    const isDev = !app.isPackaged;
 
-    sendLog(`Temp path: ${tempPath}`);
+    // Locate the updater.bat file
+    const updaterPath = isDev
+        ? path.join(__dirname, '../updater.bat')
+        : path.join(process.resourcesPath, 'updater.bat');
+
     sendLog(`Current PID: ${currentPid}`);
+    sendLog(`Updater script: ${updaterPath}`);
 
-    // Create the PowerShell script file
-    const psScriptContent = `
-$Host.UI.RawUI.WindowTitle = "Gunter Updater"
-Write-Host "--- GUNTER AUTO-UPDATER ---" -ForegroundColor Cyan
-Write-Host "URL: ${url}" -ForegroundColor Gray
-Write-Host "Download Path: ${installerPath}" -ForegroundColor Gray
-Write-Host ""
-Write-Host "[1/3] Downloading latest setup..." -ForegroundColor Yellow
-try {
-    Invoke-WebRequest -Uri "${url}" -OutFile "${installerPath}" -ErrorAction Stop
-    Write-Host "Download complete." -ForegroundColor Green
-    
-    Write-Host ""
-    Write-Host "[2/3] Launching installer..." -ForegroundColor Yellow
-    Start-Process "${installerPath}"
-    
-    Write-Host ""
-    Write-Host "[3/3] Closing Gunter to allow installation..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 2
-    Stop-Process -Id ${currentPid} -Force
-} catch {
-    Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "Press any key to exit..." -ForegroundColor Red
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-}
-`.trim();
+    // Launch the updater batch file with arguments
+    sendLog('Launching updater...');
 
-    try {
-        fs.writeFileSync(scriptPath, psScriptContent, 'utf16le');
-        sendLog('Update script created at: ' + scriptPath);
-    } catch (err) {
-        sendLog('Failed to create update script: ' + err.message);
-        return;
-    }
-
-    // Send the terminal code to the app console for internal check
-    if (mainWindow) {
-        mainWindow.webContents.send('update-log', '--- SCRIPT CONTENT START ---');
-        mainWindow.webContents.send('update-log', psScriptContent);
-        mainWindow.webContents.send('update-log', '--- SCRIPT CONTENT END ---');
-    }
-
-    // Launch PowerShell with the script file using spawn for proper argument handling
-    sendLog('Launching PowerShell script...');
-    sendLog(`Script path: ${scriptPath}`);
-
-    spawn('powershell.exe', [
-        '-NoProfile',
-        '-ExecutionPolicy', 'Bypass',
-        '-WindowStyle', 'Normal',
-        '-File', scriptPath
-    ], {
+    const updaterProcess = spawn('cmd.exe', ['/c', updaterPath, url, currentPid], {
         detached: true,
-        stdio: 'ignore'
-    }).unref();
+        stdio: 'ignore',
+        windowsHide: false
+    });
 
-    sendLog('PowerShell process started.');
+    updaterProcess.unref();
+
+    sendLog('Updater process started.');
 });
 
 app.whenReady().then(() => {
