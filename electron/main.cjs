@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
 const { spawn, exec } = require('child_process');
+const fs = require('fs');
 
 function createWindow() {
     const isDev = !app.isPackaged;
@@ -70,58 +71,64 @@ ipcMain.on('execute-update', (event, { url }) => {
 
     const tempPath = app.getPath('temp');
     const installerPath = path.join(tempPath, 'GunterSetup.exe');
+    const scriptPath = path.join(tempPath, 'update_script.ps1');
     const currentPid = process.pid;
 
     sendLog(`Temp path: ${tempPath}`);
     sendLog(`Current PID: ${currentPid}`);
 
-    // Command specifically formatted for a visible PowerShell window
-    const psCommand = `
-        $Host.UI.RawUI.WindowTitle = "Gunter Updater";
-        Write-Host ">>> GUNTER AUTO-UPDATER" -ForegroundColor Cyan;
-        Write-Host ">>> URL: ${url}" -ForegroundColor Gray;
-        Write-Host ">>> DOWNLOAD PATH: ${installerPath}" -ForegroundColor Gray;
-        Write-Host "";
-        Write-Host "[1/3] Downloading latest setup..." -ForegroundColor Yellow;
-        try {
-            Invoke-WebRequest -Uri "${url}" -OutFile "${installerPath}" -ErrorAction Stop;
-            Write-Host ">>> Download complete." -ForegroundColor Green;
-            
-            Write-Host "";
-            Write-Host "[2/3] Launching installer..." -ForegroundColor Yellow;
-            Start-Process "${installerPath}";
-            
-            Write-Host "";
-            Write-Host "[3/3] Closing Gunter to allow installation..." -ForegroundColor Yellow;
-            Start-Sleep -Seconds 2;
-            Stop-Process -Id ${currentPid} -Force;
-        } catch {
-            Write-Host ">>> ERROR: $($_.Exception.Message)" -ForegroundColor Red;
-            Write-Host ">>> Press any key to exit..." -ForegroundColor Red;
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown");
-        }
-    `;
+    // Create the PowerShell script file
+    const psScriptContent = `
+$Host.UI.RawUI.WindowTitle = "Gunter Updater"
+Write-Host "--- GUNTER AUTO-UPDATER ---" -ForegroundColor Cyan
+Write-Host "URL: ${url}" -ForegroundColor Gray
+Write-Host "Download Path: ${installerPath}" -ForegroundColor Gray
+Write-Host ""
+Write-Host "[1/3] Downloading latest setup..." -ForegroundColor Yellow
+try {
+    Invoke-WebRequest -Uri "${url}" -OutFile "${installerPath}" -ErrorAction Stop
+    Write-Host "Download complete." -ForegroundColor Green
+    
+    Write-Host ""
+    Write-Host "[2/3] Launching installer..." -ForegroundColor Yellow
+    Start-Process "${installerPath}"
+    
+    Write-Host ""
+    Write-Host "[3/3] Closing Gunter to allow installation..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    Stop-Process -Id ${currentPid} -Force
+} catch {
+    Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Press any key to exit..." -ForegroundColor Red
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
+`.trim();
 
-    sendLog('Final PowerShell command generated.');
-
-    // Send the terminal code to the app console
-    if (mainWindow) {
-        mainWindow.webContents.send('update-log', '--- TERMINAL CODE START ---');
-        mainWindow.webContents.send('update-log', psCommand.trim());
-        mainWindow.webContents.send('update-log', '--- TERMINAL CODE END ---');
+    try {
+        fs.writeFileSync(scriptPath, psScriptContent, 'utf16le');
+        sendLog('Update script created at: ' + scriptPath);
+    } catch (err) {
+        sendLog('Failed to create update script: ' + err.message);
+        return;
     }
 
-    // Use 'start' to ensure a new visible window opens
-    const powershellArgs = psCommand.replace(/"/g, '`"').replace(/\n/g, ' ');
-    const fullCommand = `start powershell -NoProfile -ExecutionPolicy Bypass -Command "${powershellArgs}"`;
+    // Send the terminal code to the app console for internal check
+    if (mainWindow) {
+        mainWindow.webContents.send('update-log', '--- SCRIPT CONTENT START ---');
+        mainWindow.webContents.send('update-log', psScriptContent);
+        mainWindow.webContents.send('update-log', '--- SCRIPT CONTENT END ---');
+    }
 
-    sendLog('Launching PowerShell window...');
+    // Launch PowerShell with the script file
+    const fullCommand = `start powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`;
+
+    sendLog('Launching PowerShell script...');
 
     exec(fullCommand, (error) => {
         if (error) {
             sendLog(`Failed to launch PowerShell: ${error.message}`);
         } else {
-            sendLog('PowerShell window launched successfully.');
+            sendLog('PowerShell script launched successfully.');
         }
     });
 });
