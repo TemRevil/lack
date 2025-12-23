@@ -241,7 +241,7 @@ const Settings = () => {
                                     {settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('darkMode')}</h3>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('theme')}</h3>
                                 </div>
                             </header>
                             <div className="settings-item-row" onClick={toggleTheme} style={{ padding: '0.75rem', marginBottom: '0.5rem' }}>
@@ -520,6 +520,19 @@ const Settings = () => {
                 <main className="settings-content" style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', width: '100%' }}>
                     {renderContent()}
                 </main>
+
+                {/* App Version Info */}
+                <div style={{
+                    textAlign: 'center',
+                    padding: '1rem',
+                    fontSize: 'var(--fs-xs)',
+                    color: 'var(--text-secondary)',
+                    opacity: 0.6,
+                    borderTop: '1px solid var(--border-color)',
+                    marginTop: 'auto'
+                }}>
+                    {settings.language === 'ar' ? 'إصدار النظام' : 'Gunter Management System'} v1.1.0
+                </div>
             </div>
         </div>
     );

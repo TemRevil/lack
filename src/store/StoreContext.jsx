@@ -15,7 +15,7 @@ const defaultData = {
     notifications: [],
     transactions: [],
     settings: {
-        theme: 'dark',
+        theme: 'light',
         loginPassword: '0',
         adminPassword: '0',
         receipt: {
@@ -25,7 +25,7 @@ const defaultData = {
             footer: 'شكراً لزيارتكم!'
         },
         license: null,
-        language: 'ar',
+        language: 'en',
         security: {
             showSessionBalance: true,
             authOnDeleteOperation: true,

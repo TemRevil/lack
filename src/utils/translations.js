@@ -137,6 +137,8 @@ export const translations = {
         mustSelectCustomer: 'يرجى اختيار عميل من القائمة أو إضافة عميل جديد أولاً',
         noCustomersFound: 'لا يوجد عملاء مسجلين حالياً',
         addNewCustomer: 'إضافة عميل جديد',
+        chooseDate: 'اختر التاريخ...',
+        today: 'اليوم',
     },
     en: {
         appName: 'Gunter',
@@ -276,5 +278,7 @@ export const translations = {
         mustSelectCustomer: 'Please select a customer from the list or add a new one first',
         noCustomersFound: 'No customers registered yet',
         addNewCustomer: 'Add New Customer',
+        chooseDate: 'Choose Date...',
+        today: 'Today',
     }
 };

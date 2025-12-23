@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Calendar as CalendarIcon } from 'lucide-react';
+import { useStore } from '../store/StoreContext';
 
 const CustomDatePicker = ({ value, onChange }) => {
+    const { t, settings } = useStore();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
     const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
@@ -24,12 +26,22 @@ const CustomDatePicker = ({ value, onChange }) => {
     const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
     const startDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
-    const months = [
+    const monthsAr = [
         "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
         "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
     ];
 
-    const weekDays = ["أحد", "نثين", "ثلث", "ربع", "خمس", "جمعة", "سبت"];
+    const monthsEn = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    const weekDaysAr = ["أحد", "نثين", "ثلث", "ربع", "خمس", "جمعة", "سبت"];
+    const weekDaysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const currentLang = settings.language || 'ar';
+    const months = currentLang === 'ar' ? monthsAr : monthsEn;
+    const weekDays = currentLang === 'ar' ? weekDaysAr : weekDaysEn;
 
     const handlePrevMonth = () => {
         setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
@@ -91,7 +103,7 @@ const CustomDatePicker = ({ value, onChange }) => {
         <div className="custom-datepicker" ref={containerRef}>
             <div className="datepicker-input" onClick={() => setIsOpen(!isOpen)}>
                 <CalendarIcon size={18} />
-                <span>{value ? new Date(value).toLocaleDateString('ar-EG') : 'اختر التاريخ...'}</span>
+                <span>{value ? new Date(value).toLocaleDateString(currentLang === 'ar' ? 'ar-EG' : 'en-US') : t('chooseDate')}</span>
             </div>
 
             {isOpen && (
@@ -122,7 +134,7 @@ const CustomDatePicker = ({ value, onChange }) => {
                             onChange(today);
                             setViewDate(new Date());
                             setIsOpen(false);
-                        }}>اليوم</button>
+                        }}>{t('today')}</button>
                     </div>
                 </div>
             )}
