@@ -23,7 +23,7 @@ const Toast = () => {
                 position: 'fixed',
                 bottom: '2rem',
                 right: '2rem',
-                zIndex: 10005,
+                zIndex: 99999,
                 padding: '1rem 1.5rem',
                 borderRadius: 'var(--radius-md)',
                 background: 'var(--bg-glass-modal)',

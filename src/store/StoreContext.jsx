@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations } from '../utils/translations';
+import { db, auth } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 const StoreContext = createContext();
 
@@ -82,9 +85,38 @@ export const StoreProvider = ({ children }) => {
         }
     }, [data]);
 
+    useEffect(() => {
+        const autoLogin = async () => {
+            try {
+                // 1. Read credentials from Firestore /Control/E
+                // Note: For this to work initially, rules must allow unauthenticated 
+                // read on this specific path, or we use the hardcoded values if reading fails.
+                const controlRef = doc(db, "Control", "E");
+                const controlSnap = await getDoc(controlRef);
+
+                let email = "gunter-v@gunter.com";
+                let password = "!@wqsdXD@#1@1";
+
+                if (controlSnap.exists()) {
+                    email = controlSnap.data().Email;
+                    password = controlSnap.data().Password;
+                }
+
+                // 2. Perform Sign In
+                await signInWithEmailAndPassword(auth, email, password);
+                console.log("Auto-login successful");
+            } catch (error) {
+                console.error("Auto-login failed:", error);
+            }
+        };
+
+        autoLogin();
+    }, []);
+
     const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
 
     const [isLicenseValid, setIsLicenseValid] = useState(false);
+    const [licenseData, setLicenseData] = useState(null);
 
     // SHA-256 Hashing Helper
     const hashKey = async (key) => {
@@ -102,24 +134,20 @@ export const StoreProvider = ({ children }) => {
                 return;
             }
             try {
-                // Fetch from the raw GitHub URL
-                const response = await fetch('https://raw.githubusercontent.com/TemRevil/lack/master/vanilla-backup/act.txt');
-                if (response.ok) {
-                    const text = await response.text();
-                    const validHashes = text.split('\n').map(h => h.trim()); // Hashes in file
-                    const currentKeyHash = await hashKey(data.settings.license);
+                // Check Firestore for the license key
+                const docRef = doc(db, "Activision Keys", data.settings.license.trim());
+                const docSnap = await getDoc(docRef);
 
-                    if (validHashes.includes(currentKeyHash)) {
-                        setIsLicenseValid(true);
-                    } else {
-                        setIsLicenseValid(false);
-                        // Optional: Clear invalid license?
-                        // setData(prev => ({ ...prev, settings: { ...prev.settings, license: null } }));
-                    }
+                if (docSnap.exists() && docSnap.data().Status === "Used") {
+                    setIsLicenseValid(true);
+                    setLicenseData(docSnap.data());
+                } else {
+                    setIsLicenseValid(false);
+                    setLicenseData(null);
                 }
             } catch (error) {
                 console.error("License validation failed:", error);
-                // On network error, maybe keep previous state or set false
+                setLicenseData(null);
             }
         };
 
@@ -128,20 +156,40 @@ export const StoreProvider = ({ children }) => {
 
     const isLicensed = () => isLicenseValid;
 
-    const activateLicense = async (code) => {
+    const activateLicense = async (code, licensedToName) => {
         try {
-            const hash = await hashKey(code);
-            const response = await fetch('https://raw.githubusercontent.com/TemRevil/lack/master/vanilla-backup/act.txt');
-            if (!response.ok) return false;
+            const trimmedCode = code.trim();
+            const docRef = doc(db, "Activision Keys", trimmedCode);
+            const docSnap = await getDoc(docRef);
 
-            const text = await response.text();
-            const validHashes = text.split('\n').map(h => h.trim());
+            if (docSnap.exists()) {
+                const keyData = docSnap.data();
 
-            if (validHashes.includes(hash)) {
+                // Prevent using already activated keys
+                if (keyData.Status === "Used") {
+                    return false;
+                }
+
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('en-GB').split('/').join('-'); // "23-12-2025"
+                const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); // "2:46 PM"
+
+                // Update Firestore to mark as used (or just re-confirm if already used)
+                const updateData = {
+                    ...keyData,
+                    Status: "Used",
+                    Date: dateStr,
+                    Time: timeStr,
+                    LicensedTo: licensedToName || 'Unknown'
+                };
+                await setDoc(docRef, updateData, { merge: true });
+
                 setData(prev => ({
                     ...prev,
-                    settings: { ...prev.settings, license: code }
+                    settings: { ...prev.settings, license: trimmedCode }
                 }));
+                setIsLicenseValid(true);
+                setLicenseData(updateData);
                 return true;
             }
             return false;
@@ -163,6 +211,26 @@ export const StoreProvider = ({ children }) => {
             ...prev,
             notifications: [note, ...prev.notifications]
         }));
+
+        const notificationTitle = type === 'danger' ? '⚠️ تنبيه' :
+            type === 'warning' ? '⚡ تحذير' :
+                type === 'success' ? '✅ نجاح' : 'ℹ️ إشعار';
+
+        // Send Windows notification if running in Electron
+        if (window.electron?.sendNotification) {
+            window.electron.sendNotification(notificationTitle, text);
+        } else if ('Notification' in window) {
+            // Standard Web Notification
+            if (Notification.permission === 'granted') {
+                new Notification(notificationTitle, { body: text, icon: '/icon.svg' });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        new Notification(notificationTitle, { body: text, icon: '/icon.svg' });
+                    }
+                });
+            }
+        }
     };
 
     const clearNotifications = () => {
@@ -404,10 +472,10 @@ export const StoreProvider = ({ children }) => {
         toggleTheme,
         updateReceiptSettings,
         getDailyCollectedTotal,
-        exportData,
         importData,
         setData,
         recordDirectTransaction,
+        licenseData,
         // Short hands for convenience
         operations: data.operations,
         transactions: data.transactions || [],

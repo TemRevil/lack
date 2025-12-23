@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import { useStore } from '../store/StoreContext';
 
 const ConfirmDialog = () => {
+    const { t } = useStore();
     const [config, setConfig] = useState(null);
 
     useEffect(() => {
@@ -24,7 +26,7 @@ const ConfirmDialog = () => {
                     className="btn btn-secondary"
                     onClick={() => setConfig(null)}
                 >
-                    إلغاء
+                    {t('cancel')}
                 </button>
                 <button
                     className="btn btn-primary"
@@ -33,7 +35,7 @@ const ConfirmDialog = () => {
                         setConfig(null);
                     }}
                 >
-                    تأكيد
+                    {t('confirm')}
                 </button>
             </div>
         </Modal>

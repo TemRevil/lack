@@ -1,6 +1,18 @@
 import React from 'react';
 
 const Modal = ({ show, onClose, title, children, style = {} }) => {
+    React.useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && show) {
+                onClose();
+            }
+        };
+        if (show) {
+            window.addEventListener('keydown', handleEsc);
+        }
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [show, onClose]);
+
     if (!show) return null;
 
     return (

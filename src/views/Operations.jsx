@@ -1,7 +1,8 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
     CalendarCheck, Search, Plus, Trash2,
-    Printer, Clock, User, Package, DollarSign
+    Printer, Clock, User, Package, DollarSign,
+    CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
 import Modal from '../components/Modal';
@@ -11,13 +12,26 @@ import CustomerForm from '../components/CustomerForm';
 import PartForm from '../components/PartForm';
 import CustomDatePicker from '../components/CustomDatePicker';
 
+// Helper to normalize Arabic text for better matching
+const normalizeArabic = (text) => {
+    if (!text) return '';
+    return text
+        .trim()
+        .toLowerCase()
+        .replace(/[أإآ]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/[ىي]/g, 'ي');
+};
+
 const CustomAutocomplete = ({ label, items, value, onSelect, onAddNew, placeholder, icon: Icon, displaySubtext }) => {
+    const { settings, t } = useContext(StoreContext);
     const [inputValue, setInputValue] = useState(value || '');
     const [showList, setShowList] = useState(false);
     const containerRef = useRef(null);
 
+    const normalizedInput = normalizeArabic(inputValue);
     const filtered = items.filter(item =>
-        item.name.toLowerCase().includes(inputValue.toLowerCase())
+        normalizeArabic(item.name).includes(normalizedInput)
     );
 
     useEffect(() => {
@@ -41,9 +55,18 @@ const CustomAutocomplete = ({ label, items, value, onSelect, onAddNew, placehold
                     type="text"
                     value={inputValue}
                     onChange={(e) => {
-                        setInputValue(e.target.value);
+                        const val = e.target.value;
+                        setInputValue(val);
                         setShowList(true);
-                        onSelect({ name: e.target.value, id: '' });
+
+                        // Auto-match if name exactly matches an existing item (normalized)
+                        const normVal = normalizeArabic(val);
+                        const match = items.find(i => normalizeArabic(i.name) === normVal);
+                        if (match) {
+                            onSelect(match);
+                        } else {
+                            onSelect({ name: val, id: '' });
+                        }
                     }}
                     onFocus={() => setShowList(true)}
                     placeholder={placeholder}
@@ -67,12 +90,30 @@ const CustomAutocomplete = ({ label, items, value, onSelect, onAddNew, placehold
                             }}
                         >
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span>{item.name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span>{item.name}</span>
+                                    {item.code && (
+                                        <span style={{
+                                            fontSize: '0.7em',
+                                            background: 'var(--bg-hover)',
+                                            padding: '0.1rem 0.35rem',
+                                            borderRadius: '4px',
+                                            opacity: 0.8
+                                        }}>
+                                            #{item.code}
+                                        </span>
+                                    )}
+                                </div>
                                 {displaySubtext && item.id && <small style={{ opacity: 0.6 }}>{displaySubtext(item)}</small>}
                             </div>
                         </div>
                     ))}
-                    {onAddNew && inputValue.trim() && !filtered.some(i => i.name.toLowerCase() === inputValue.toLowerCase()) && (
+                    {filtered.length === 0 && items.length === 0 && (
+                        <div className="action-menu-item" style={{ opacity: 0.6, cursor: 'default' }}>
+                            {t('noCustomersFound') || 'No items found'}
+                        </div>
+                    )}
+                    {onAddNew && inputValue.trim() && !filtered.some(i => normalizeArabic(i.name) === normalizeArabic(inputValue)) && (
                         <div
                             className="action-menu-item"
                             style={{ borderTop: '1px solid var(--border-color)', color: 'var(--accent-color)', fontWeight: 700 }}
@@ -100,9 +141,64 @@ const Operations = () => {
         addCustomer, addPart, t
     } = useContext(StoreContext);
 
+    // Helper function to get local date as YYYY-MM-DD string
+    const getLocalDateString = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getLocalDateString());
     const [showModal, setShowModal] = useState(false);
+    const [selectedOpId, setSelectedOpId] = useState(null); // Track selected row for printing shortcut
+
+    // Keyboard shortcut for printing selected operation
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+            if (e.key.toLowerCase() === 'p' && selectedOpId) {
+                const op = operations.find(o => o.id === selectedOpId);
+                if (op) {
+                    printReceipt(op, settings);
+                    window.showToast?.(settings.language === 'ar' ? 'جاري الطباعة...' : 'Printing...', 'success');
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [selectedOpId, operations, settings]);
+
+    // Auto-update date when day changes (without requiring app refresh)
+    // Only updates if the user is currently viewing today's date
+    useEffect(() => {
+        const checkDateChange = () => {
+            const currentDate = getLocalDateString(); // Use local date, not UTC
+            const currentSelectedDate = selectedDate;
+
+            // Only auto-update if the user is currently viewing today
+            // This allows manual date selection to persist
+            if (currentSelectedDate === currentDate) {
+                // User is viewing today, so if day changes, update automatically
+                const newCurrentDate = getLocalDateString();
+                if (currentSelectedDate !== newCurrentDate) {
+                    setSelectedDate(newCurrentDate);
+                }
+            }
+            // If user has manually selected a different date, don't force update
+        };
+
+        // Check immediately on mount
+        checkDateChange();
+
+        // Check every 30 seconds for more responsive updates
+        const intervalId = setInterval(checkDateChange, 30000);
+
+        // Cleanup on unmount
+        return () => clearInterval(intervalId);
+    }, [selectedDate]);
 
     // Quick Add States
     const [showQuickCust, setShowQuickCust] = useState(false);
@@ -124,7 +220,7 @@ const Operations = () => {
         const newCust = addCustomer(data);
         setFormData(prev => ({ ...prev, customerId: newCust.id, customerName: newCust.name }));
         setShowQuickCust(false);
-        window.showToast?.('تم إضافة العميل بنجاح', 'success');
+        window.showToast?.(t('customerAddedSuccess'), 'success');
     };
 
     const handleQuickPartSubmit = (data) => {
@@ -137,11 +233,17 @@ const Operations = () => {
             paidAmount: prev.paymentStatus === 'paid' ? String(newPart.price * (parseInt(prev.quantity) || 1)) : prev.paidAmount
         }));
         setShowQuickPart(false);
-        window.showToast?.('تم إضافة القطعة للمخزن', 'success');
+        window.showToast?.(t('partAddedSuccess'), 'success');
     };
 
     const filteredOps = operations.filter(op => {
-        const opDate = op.timestamp.split('T')[0];
+        // Convert timestamp to local date string YYYY-MM-DD for comparison
+        const d = new Date(op.timestamp);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const opDate = `${year}-${month}-${day}`;
+
         const matchesSearch = op.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             op.partName.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesDate = !selectedDate || opDate === selectedDate;
@@ -149,19 +251,37 @@ const Operations = () => {
     }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     const handlePartSelect = (part) => {
-        if (part.id) {
-            const qty = parseInt(formData.quantity) || 0;
-            const newPrice = part.price * qty;
-            setFormData(prev => ({
-                ...prev,
-                partId: part.id,
-                partName: part.name,
-                price: String(newPrice),
-                paidAmount: prev.paymentStatus === 'paid' ? String(newPrice) : prev.paidAmount
-            }));
-        } else {
-            setFormData(prev => ({ ...prev, partName: part.name, partId: '' }));
+        let finalId = part.id;
+        let finalPrice = formData.price;
+        let finalName = part.name;
+        const normName = normalizeArabic(part.name);
+
+        // Auto-match by name if ID is missing
+        if (!finalId && part.name) {
+            const match = parts.find(p => normalizeArabic(p.name) === normName);
+            if (match) {
+                finalId = match.id;
+                finalName = match.name;
+                const qty = parseInt(formData.quantity) || 1;
+                finalPrice = String(match.price * qty);
+            }
+        } else if (finalId) {
+            // Selected from list
+            const qty = parseInt(formData.quantity) || 1;
+            const match = parts.find(p => p.id === finalId);
+            if (match) {
+                finalPrice = String(match.price * qty);
+                finalName = match.name;
+            }
         }
+
+        setFormData(prev => ({
+            ...prev,
+            partId: finalId || '',
+            partName: finalName,
+            price: finalPrice,
+            paidAmount: prev.paymentStatus === 'paid' ? finalPrice : prev.paidAmount
+        }));
     };
 
     const handleNumericInput = (field, value, isFloat = false) => {
@@ -182,9 +302,17 @@ const Operations = () => {
     };
 
     const handleCustomerSelect = (cust) => {
+        // Fallback: If no ID provided but name matches an existing customer exactly
+        let finalId = cust.id;
+        if (!finalId && cust.name) {
+            const normName = normalizeArabic(cust.name);
+            const match = customers.find(c => normalizeArabic(c.name) === normName);
+            if (match) finalId = match.id;
+        }
+
         setFormData(prev => ({
             ...prev,
-            customerId: cust.id || '',
+            customerId: finalId || '',
             customerName: cust.name
         }));
     };
@@ -194,39 +322,67 @@ const Operations = () => {
 
         // 1. Validate Part Selection (Must be from storage)
         if (!formData.partId) {
-            window.showToast?.('يرجى اختيار قطعة موجودة في المخزن أولاً', 'danger');
+            window.showToast?.(t('selectPartFirst'), 'danger');
             return;
         }
 
         // 2. Validate Customer (Name is required)
         if (!formData.customerName.trim()) {
-            window.showToast?.('يرجى تحديد العميل', 'danger');
+            window.showToast?.(t('selectCustomerFirst'), 'danger');
             return;
         }
 
         let finalCustomerId = formData.customerId;
-        // Automatically add as a new customer if not selected from list (but has a name)
-        if (!finalCustomerId) {
-            const newCust = addCustomer({ name: formData.customerName.trim(), phone: '', address: '' });
-            finalCustomerId = newCust.id;
+        let customerFound = !!finalCustomerId;
+
+        // Final fallback: Check by name if ID is still missing
+        if (!finalCustomerId && formData.customerName) {
+            const normName = normalizeArabic(formData.customerName);
+            const match = customers.find(c => normalizeArabic(c.name) === normName);
+            if (match) {
+                finalCustomerId = match.id;
+                customerFound = true;
+            }
+        }
+
+        // Prevent implicit addition. User must select or use the "Add New" button which sets customerId.
+        if (!customerFound) {
+            const msg = settings.language === 'ar'
+                ? `العميل "${formData.customerName}" غير مسجل. يرجى اختياره من القائمة أو الضغط على "إضافة كجديد"`
+                : `Customer "${formData.customerName}" not found. Please select from list or click "Add as new"`;
+            window.showToast?.(msg, 'warning');
+            return;
         }
 
         const total = parseFloat(formData.price) || 0;
+
+        // Calculate timestamp based on selectedDate
+        const now = new Date();
+        const selectedDateObj = new Date(selectedDate);
+        // Combine selected date with current time
+        selectedDateObj.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
         const opData = {
             ...formData,
             customerId: finalCustomerId,
             customerName: formData.customerName.trim(),
             quantity: parseInt(formData.quantity) || 1,
             price: total,
-            paidAmount: formData.paymentStatus === 'paid' ? total : (formData.paymentStatus === 'unpaid' ? 0 : parseFloat(formData.paidAmount || 0))
+            paidAmount: formData.paymentStatus === 'paid' ? total : (formData.paymentStatus === 'unpaid' ? 0 : parseFloat(formData.paidAmount || 0)),
+            timestamp: selectedDateObj.toISOString() // Use the constructed date
         };
 
         const newOp = addOperation(opData);
+
+        // No longer forcing update to current date
+        // const currentDate = getLocalDateString();
+        // setSelectedDate(currentDate);
+
         setShowModal(false);
         setFormData({ customerId: '', customerName: '', partId: '', partName: '', quantity: '1', price: '0', paidAmount: '0', paymentStatus: 'paid' });
 
         if (window.customConfirm) {
-            window.customConfirm('عملية بيع ناجحة', 'هل تريد طباعة الفاتورة الآن؟', () => {
+            window.customConfirm(t('operationSuccess'), t('printInvoiceQuestion'), () => {
                 printReceipt(newOp, settings);
             });
         }
@@ -242,6 +398,10 @@ const Operations = () => {
                     <div>
                         <h1>{t('operations')}</h1>
                         <p>{settings.language === 'ar' ? 'سجل المبيعات والتعاملات الحالية' : 'Daily sales and current transactions log'}</p>
+                        <p style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: '0.25rem' }}>
+                            {settings.language === 'ar' ? 'التاريخ الحالي' : 'Current'}: {getLocalDateString()} |
+                            {settings.language === 'ar' ? ' المختار' : ' Selected'}: {selectedDate}
+                        </p>
                     </div>
                 </div>
                 <div className="view-actions">
@@ -258,7 +418,8 @@ const Operations = () => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    {selectedDate === new Date().toISOString().split('T')[0] && (
+                    {/* Only allow adding on Today */}
+                    {selectedDate === getLocalDateString() && (
                         <button className="btn btn-primary" onClick={() => {
                             if (settings?.security?.authOnAddOperation) {
                                 window.requestAdminAuth?.(() => setShowModal(true), settings.language === 'ar' ? 'تأكيد الهوية لإدراج عملية جديدة' : 'Identity confirmation to insert new operation');
@@ -276,7 +437,7 @@ const Operations = () => {
                 <table className="data-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '15%' }}>{t('time')}</th>
+                            <th style={{ width: '15%' }}>{settings.language === 'ar' ? 'التاريخ والوقت' : 'Date & Time'}</th>
                             <th style={{ width: '20%' }}>{t('customer')}</th>
                             <th style={{ width: '20%' }}>{t('part')}</th>
                             <th style={{ width: '10%', textAlign: 'center' }}>{t('qty')}</th>
@@ -288,18 +449,34 @@ const Operations = () => {
                     <tbody>
                         {filteredOps.length > 0 ? (
                             filteredOps.map(op => (
-                                <tr key={op.id}>
+                                <tr
+                                    key={op.id}
+                                    onClick={() => setSelectedOpId(op.id)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        background: selectedOpId === op.id ? 'rgba(59, 130, 246, 0.08)' : undefined,
+                                        borderLeft: selectedOpId === op.id ? '4px solid var(--primary-color)' : undefined
+                                    }}
+                                >
                                     <td>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', opacity: 0.8 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                <Clock size={12} className="text-accent" />
-                                                <span dir="ltr" style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
-                                                    {new Date(op.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <Clock size={14} style={{ color: 'var(--accent-color)' }} />
+                                                <span dir="ltr" style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                    {new Date(op.timestamp).toLocaleTimeString(settings.language === 'ar' ? 'ar-EG' : 'en-US', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        hour12: true
+                                                    })}
                                                 </span>
                                             </div>
-                                            <div className="settings-button-grid">
-                                                <span dir="ltr" style={{ fontSize: 'var(--fs-xs)' }}>
-                                                    {new Date(op.timestamp).toLocaleDateString()}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingLeft: '1.2rem' }}>
+                                                <span dir="ltr" style={{ fontSize: 'var(--fs-xs)', opacity: 0.7 }}>
+                                                    {new Date(op.timestamp).toLocaleDateString(settings.language === 'ar' ? 'ar-EG' : 'en-US', {
+                                                        year: 'numeric',
+                                                        month: '2-digit',
+                                                        day: '2-digit'
+                                                    })}
                                                 </span>
                                             </div>
                                         </div>
@@ -309,9 +486,19 @@ const Operations = () => {
                                     <td style={{ textAlign: 'center' }}>{op.quantity}</td>
                                     <td className="font-medium" style={{ textAlign: 'center' }}>{op.price.toLocaleString()}</td>
                                     <td style={{ textAlign: 'center' }}>
-                                        <span className={`badge ${op.paymentStatus === 'paid' ? 'success' : 'warning'}`}>
-                                            {op.paymentStatus === 'paid' ? t('fullyPaid') : (op.paymentStatus === 'partial' ? t('partial') : t('debt'))}
-                                        </span>
+                                        {op.paymentStatus === 'paid' ? (
+                                            <span className="badge success">
+                                                <CheckCircle2 size={12} strokeWidth={3} /> {t('fullyPaid')}
+                                            </span>
+                                        ) : op.paymentStatus === 'partial' ? (
+                                            <span className="badge warning">
+                                                <Clock size={12} strokeWidth={3} /> {t('partial')}
+                                            </span>
+                                        ) : (
+                                            <span className="badge danger">
+                                                <AlertCircle size={12} strokeWidth={3} /> {t('debt')}
+                                            </span>
+                                        )}
                                     </td>
                                     <td>
                                         <DropdownMenu options={[
@@ -369,7 +556,9 @@ const Operations = () => {
                             setQuickName(val);
                             setShowQuickCust(true);
                         }}
-                        placeholder={settings.language === 'ar' ? 'اختر عميل أو اكتب اسم جديد...' : 'Choose customer or type new name...'}
+                        placeholder={customers.length === 0
+                            ? (settings.language === 'ar' ? 'لا يوجد عملاء.. أضف واحد أولاً' : 'No customers.. add one first')
+                            : (settings.language === 'ar' ? 'اختر عميل من القائمة...' : 'Choose a customer from the list...')}
                         icon={User}
                         displaySubtext={(c) => c.phone ? `${t('phone')}: ${c.phone}` : ''}
                     />

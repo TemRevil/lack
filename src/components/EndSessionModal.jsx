@@ -66,7 +66,7 @@ const EndSessionModal = ({ isOpen, onClose, onFinish }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (password !== settings.adminPassword) {
-            window.showToast?.(settings.language === 'ar' ? 'كلمة مرور المدير غير صحيحة' : 'Incorrect admin password', 'danger');
+            window.showToast?.(t('incorrectAdminPassword'), 'danger');
             return;
         }
 
@@ -92,7 +92,7 @@ const EndSessionModal = ({ isOpen, onClose, onFinish }) => {
                         <Power size={24} />
                         <h2 style={{ margin: 0 }}>{t('endSession')}</h2>
                     </div>
-                    <button className="close-modal" style={{ position: 'static' }} onClick={onClose}>&times;</button>
+                    <button className="close-modal" onClick={onClose}>&times;</button>
                 </div>
 
                 <div className="summary-box" style={{
@@ -106,28 +106,28 @@ const EndSessionModal = ({ isOpen, onClose, onFinish }) => {
                     gap: '1rem'
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{settings.language === 'ar' ? 'عدد عمليات اليوم:' : "Today's operations count:"}</span>
+                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{t('todayOpsCount')}</span>
                         <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--accent-color)' }}>{stats.opsCount} {t('operations')}</span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{settings.language === 'ar' ? 'المبيعات النقدية اليوم (بالنظام):' : "Today's cash sales (System):"}</span>
+                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{t('todayCashSales')}</span>
                         <span style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--success-color)' }}>{stats.paidTotal.toLocaleString()}</span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{settings.language === 'ar' ? 'مجموع المديونية الجديدة اليوم:' : "Today's new debt total:"}</span>
+                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{t('todayNewDebt')}</span>
                         <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--warning-color)' }}>{stats.newDebtTotal.toLocaleString()}</span>
                     </div>
 
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.5rem 0 0', lineHeight: 1.4 }}>
-                        * {settings.language === 'ar' ? 'المبيعات النقدية تشمل كل المبالغ التي دخلت الخزنة فعلياً (دفعات المبيعات + سداد الديون اليدوي).' : 'Cash sales include all amounts that actually entered the safe (sales payments + manual debt payments).'}
+                        * {t('cashSalesNote')}
                     </p>
                 </div>
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>{settings.language === 'ar' ? 'المبلغ الموجود فعلياً في الخزنة' : 'Actual Cash in Safe'}</label>
+                        <label>{t('actualCashInSafe')}</label>
                         <input
                             type="text"
                             required
@@ -144,7 +144,7 @@ const EndSessionModal = ({ isOpen, onClose, onFinish }) => {
                             fontWeight: 700,
                             color: diff === 0 ? 'var(--success-color)' : (diff < 0 ? 'var(--danger-color)' : 'var(--success-color)')
                         }}>
-                            {settings.language === 'ar' ? 'الفرق: ' : 'Difference: '} {diff === 0 ? (settings.language === 'ar' ? 'مطابق (0)' : 'Balanced (0)') : (diff < 0 ? `${settings.language === 'ar' ? 'عجز' : 'Shortage'} (${Math.abs(diff).toLocaleString()})` : `${settings.language === 'ar' ? 'زيادة' : 'Surplus'} (${diff.toLocaleString()})`)}
+                            {t('difference')} {diff === 0 ? t('balanced') : (diff < 0 ? `${t('shortage')} (${Math.abs(diff).toLocaleString()})` : `${t('surplus')} (${diff.toLocaleString()})`)}
                         </div>
                     )}
 
@@ -164,7 +164,7 @@ const EndSessionModal = ({ isOpen, onClose, onFinish }) => {
 
                     <div className="modal-footer" style={{ border: 'none', padding: 0, marginTop: '2rem' }}>
                         <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', background: 'var(--danger-color)', border: 'none' }}>
-                            {settings.language === 'ar' ? 'إغلاق وطباعة ونسخ احتياطي' : 'Close, Print & Backup'}
+                            {t('closePrintBackup')}
                         </button>
                     </div>
                 </form>

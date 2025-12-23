@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
 
-const LicenseSection = ({ settings, setData, t }) => (
+const LicenseSection = ({ settings, setData, t, licenseData }) => (
     <section className="settings-section-card" style={{ padding: '1.5rem', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
         <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
             <div className="settings-section-icon security" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success-color)', width: '40px', height: '40px' }}>
@@ -27,6 +27,34 @@ const LicenseSection = ({ settings, setData, t }) => (
                     <ShieldCheck size={20} />
                 </div>
             </div>
+
+            {licenseData && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px dashed rgba(59, 130, 246, 0.2)' }}>
+                    <div style={{ borderBottom: '1px solid rgba(59, 130, 246, 0.1)', paddingBottom: '0.75rem', marginBottom: '0.25rem' }}>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.6, display: 'block', marginBottom: '0.2rem' }}>{t('licensedTo')}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, fontSize: '1.05rem', color: 'var(--accent-color)' }}>
+                            <UserCheck size={18} />
+                            {licenseData.LicensedTo || '---'}
+                        </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.6, display: 'block', marginBottom: '0.2rem' }}>{t('activationDate')}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>
+                                <FileBarChart size={14} opacity={0.6} />
+                                {licenseData.Date || '---'}
+                            </div>
+                        </div>
+                        <div>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.6, display: 'block', marginBottom: '0.2rem' }}>{t('activationTime')}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>
+                                <Palette size={14} opacity={0.6} />
+                                {licenseData.Time || '---'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="password-box" style={{ padding: '1rem' }}>
                 <div className="password-box-header" style={{ marginBottom: '0.5rem' }}>
@@ -88,7 +116,7 @@ const LicenseSection = ({ settings, setData, t }) => (
 const Settings = () => {
     const {
         settings, toggleTheme, updateReceiptSettings,
-        exportData, importData, setData, data, t
+        exportData, importData, setData, data, t, licenseData
     } = useContext(StoreContext);
 
     const [activeTab, setActiveTab] = useState('general');
@@ -398,9 +426,33 @@ const Settings = () => {
                     </section>
                 );
             case 'license':
-                return <LicenseSection settings={settings} setData={setData} t={t} />;
+                return <LicenseSection settings={settings} setData={setData} t={t} licenseData={licenseData} />;
             default:
                 return null;
+        }
+    };
+
+    // Scroll active tab into view
+    React.useEffect(() => {
+        const activeBtn = document.querySelector(`.settings-tab-btn-${activeTab}`);
+        if (activeBtn) {
+            activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }, [activeTab]);
+
+    const handleTabWheel = (e) => {
+        // Allow horizontal scroll if it's a trackpad (deltaX present) logic?
+        // But user asked "scroll between settings sections", implying switching.
+
+        // Simple throttle/threshold
+        if (Math.abs(e.deltaY) < 10 && Math.abs(e.deltaX) < 10) return;
+
+        const dir = (e.deltaY > 0 || e.deltaX > 0) ? 1 : -1;
+        const currentIndex = tabs.findIndex(t => t.id === activeTab);
+        const nextIndex = Math.max(0, Math.min(tabs.length - 1, currentIndex + dir));
+
+        if (nextIndex !== currentIndex) {
+            setActiveTab(tabs[nextIndex].id);
         }
     };
 
@@ -426,23 +478,26 @@ const Settings = () => {
                 overflow: 'hidden'
             }}>
                 {/* Horizontal Tabs Navigation */}
-                <div className="settings-tabs-container" style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    overflowX: 'auto',
-                    padding: '0 0.25rem 0.5rem 0.25rem',
-                    flexShrink: 0,
-                    borderBottom: '1px solid var(--border-color)',
-                    scrollbarWidth: 'none',  /* Firefox */
-                    msOverflowStyle: 'none'  /* IE 10+ */
-                }}>
+                <div
+                    className="settings-tabs-container"
+                    onWheel={handleTabWheel}
+                    style={{
+                        display: 'flex',
+                        gap: '0.75rem',
+                        overflowX: 'auto',
+                        padding: '0 0.25rem 0.5rem 0.25rem',
+                        flexShrink: 0,
+                        borderBottom: '1px solid var(--border-color)',
+                        scrollbarWidth: 'none',  /* Firefox */
+                        msOverflowStyle: 'none'  /* IE 10+ */
+                    }}>
                     <style>{`
                         .settings-tabs-container::-webkit-scrollbar { display: none; }
                     `}</style>
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
-                            className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+                            className={`btn settings-tab-btn-${tab.id} ${activeTab === tab.id ? 'btn-primary' : 'btn-ghost'}`}
                             onClick={() => setActiveTab(tab.id)}
                             style={{
                                 whiteSpace: 'nowrap',

@@ -31,6 +31,52 @@ function App() {
         document.documentElement.lang = settings.language || 'ar';
     }, [settings.language]);
 
+    // Global Keyboard Shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            const isInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+
+            // Navigation (1-5) - Blocked if typing
+            if (!isInput) {
+                switch (e.key) {
+                    case '1': handleTabChange('operations'); break;
+                    case '2': handleTabChange('storage'); break;
+                    case '3': handleTabChange('customers'); break;
+                    case '4': handleTabChange('notifications'); break;
+                    case '5': handleTabChange('settings'); break;
+                    default: break;
+                }
+            }
+
+            // Escape - Works even if typing
+            if (e.key === 'Escape') {
+                // 1. If End Session modal is explicitly open, close it
+                if (isEndSessionOpen) {
+                    setIsEndSessionOpen(false);
+                    return;
+                }
+
+                // 2. If any other modal is open (detected via DOM), ignore (let modal handle it)
+                if (document.querySelector('.modal-overlay')) {
+                    // However, we must ensure that internal modals also handle ESC even if in input
+                    // Modal.jsx listener (Step 399) does not check for input, so it works.
+                    return;
+                }
+
+                // 3. If in Settings, go back to Operations
+                if (currentTab === 'settings') {
+                    setCurrentTab('operations');
+                } else {
+                    // 4. Otherwise, open End Session
+                    setIsEndSessionOpen(true);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isEndSessionOpen, currentTab]);
+
     const renderTabContent = () => {
         switch (currentTab) {
             case 'operations': return <Operations />;
@@ -62,8 +108,8 @@ function App() {
             <AdminAuthModal />
 
             {!isLicensed() ? (
-                <LicenseScreen onActivate={async (code) => {
-                    const valid = await activateLicense(code);
+                <LicenseScreen onActivate={async (code, name) => {
+                    const valid = await activateLicense(code, name);
                     if (valid) {
                         window.showToast?.(settings.language === 'ar' ? 'تم تنشيط النظام بنجاح' : 'System activated successfully', 'success');
                     } else {

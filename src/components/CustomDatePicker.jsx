@@ -6,6 +6,13 @@ const CustomDatePicker = ({ value, onChange }) => {
     const containerRef = useRef(null);
     const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
 
+    // Sync viewDate with value prop changes
+    useEffect(() => {
+        if (value) {
+            setViewDate(new Date(value));
+        }
+    }, [value]);
+
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
@@ -106,7 +113,12 @@ const CustomDatePicker = ({ value, onChange }) => {
 
                     <div className="datepicker-footer">
                         <button className="btn-today" onClick={() => {
-                            const today = new Date().toISOString().split('T')[0];
+                            const now = new Date();
+                            const year = now.getFullYear();
+                            const month = String(now.getMonth() + 1).padStart(2, '0');
+                            const day = String(now.getDate()).padStart(2, '0');
+                            const today = `${year}-${month}-${day}`;
+
                             onChange(today);
                             setViewDate(new Date());
                             setIsOpen(false);

@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Boxes, Search, Plus, Trash2, PenTool, AlertTriangle, Hash, DollarSign } from 'lucide-react';
+import { Boxes, Search, Plus, Trash2, PenTool, AlertTriangle, Hash, DollarSign, CheckCircle2, XCircle } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
 import Modal from '../components/Modal';
 import DropdownMenu from '../components/DropdownMenu';
@@ -129,15 +129,21 @@ const Storage = () => {
                                     <td style={{ textAlign: 'center' }}>{part.quantity}</td>
                                     <td style={{ textAlign: 'center' }}>{part.price.toLocaleString()}</td>
                                     <td style={{ textAlign: 'center' }}>
-                                        {part.quantity <= (part.threshold || 5) && part.quantity > 0 ? (
+                                        {part.quantity === 0 ? (
+                                            <span className="badge danger">
+                                                <XCircle size={12} strokeWidth={3} />
+                                                {settings.language === 'ar' ? 'نفذ' : 'Out of Stock'}
+                                            </span>
+                                        ) : part.quantity <= (part.threshold || 5) ? (
                                             <span className="badge warning">
-                                                <AlertTriangle size={12} style={{ [settings.language === 'ar' ? 'marginLeft' : 'marginRight']: '4px' }} />
+                                                <AlertTriangle size={12} strokeWidth={3} />
                                                 {t('lowStock')}
                                             </span>
-                                        ) : part.quantity === 0 ? (
-                                            <span className="badge danger">{settings.language === 'ar' ? 'نفذ' : 'Out of Stock'}</span>
                                         ) : (
-                                            <span className="badge success">{settings.language === 'ar' ? 'متوفر' : 'In Stock'}</span>
+                                            <span className="badge success">
+                                                <CheckCircle2 size={12} strokeWidth={3} />
+                                                {settings.language === 'ar' ? 'متوفر' : 'In Stock'}
+                                            </span>
                                         )}
                                     </td>
                                     <td>

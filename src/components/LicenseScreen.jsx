@@ -5,6 +5,7 @@ import { useStore } from '../store/StoreContext';
 const LicenseScreen = ({ onActivate }) => {
     const { t, settings, setData } = useStore();
     const [code, setCode] = useState('');
+    const [name, setName] = useState('');
 
     const [loading, setLoading] = useState(false);
 
@@ -12,7 +13,7 @@ const LicenseScreen = ({ onActivate }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onActivate(code);
+            await onActivate(code, name);
         } finally {
             setLoading(false);
         }
@@ -50,12 +51,22 @@ const LicenseScreen = ({ onActivate }) => {
                 <form onSubmit={handleSubmit} className="license-form-group">
                     <input
                         type="text"
+                        placeholder={settings.language === 'ar' ? 'اسم المرخص له' : 'Licensed To (Name)'}
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="search-input"
+                        style={{ maxWidth: '100%', width: '100%', marginBottom: '1rem' }}
+                        disabled={loading}
+                    />
+                    <input
+                        type="text"
                         placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
                         required
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
                         className="search-input"
-                        style={{ maxWidth: '100%', width: '100%' }}
+                        style={{ maxWidth: '100%', width: '100%', marginBottom: '1rem' }}
                         disabled={loading}
                     />
                     <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem' }} disabled={loading}>

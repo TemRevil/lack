@@ -1,7 +1,8 @@
 import React, { useState, useContext } from 'react';
 import {
     Users, Search, Plus, Phone, MapPin,
-    UserPlus, Clock, Printer, Trash2, PenTool, Coins, History
+    UserPlus, Clock, Printer, Trash2, PenTool, Coins, History,
+    CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
 import Modal from '../components/Modal';
@@ -168,9 +169,18 @@ const Customers = () => {
                                         </div>
                                     </td>
                                     <td style={{ textAlign: 'center' }}>
-                                        <span className={`badge ${(customer.balance || 0) > 0 ? 'danger' : 'success'}`}>
-                                            {(customer.balance || 0).toLocaleString()} {(customer.balance || 0) > 0 ? `(${t('debt')})` : ''}
-                                        </span>
+                                        {(customer.balance || 0) > 0 ? (
+                                            <span className="badge danger">
+                                                <AlertCircle size={12} strokeWidth={3} />
+                                                {(customer.balance || 0).toLocaleString()}
+                                                <span style={{ fontSize: '0.75em', opacity: 0.8, marginInlineStart: '3px', fontWeight: 500 }}>({t('debt')})</span>
+                                            </span>
+                                        ) : (
+                                            <span className="badge success">
+                                                <CheckCircle2 size={12} strokeWidth={3} />
+                                                {(customer.balance || 0).toLocaleString()}
+                                            </span>
+                                        )}
                                     </td>
                                     <td>
                                         <DropdownMenu options={[
