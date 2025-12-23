@@ -64,28 +64,44 @@ app.whenReady().then(() => {
     createWindow();
 
     // Check for updates
-    if (app.isPackaged) {
-        autoUpdater.logger = console;
-        autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.logger = console;
 
-        autoUpdater.on('update-available', () => {
-            const mainWindow = BrowserWindow.getAllWindows()[0];
-            if (mainWindow) {
-                mainWindow.webContents.send('update-message', 'Update available');
-            }
-        });
-
-        autoUpdater.on('update-downloaded', () => {
-            const mainWindow = BrowserWindow.getAllWindows()[0];
-            if (mainWindow) {
-                mainWindow.webContents.send('update-downloaded');
-            }
-        });
-
-        autoUpdater.on('error', (err) => {
-            console.error('Update error:', err);
-        });
+    // In development mode, we use the dev-app-update.yml
+    if (!app.isPackaged) {
+        // This will allow checking for updates even in dev mode using dev-app-update.yml
+        autoUpdater.updateConfigPath = path.join(__dirname, '../dev-app-update.yml');
     }
+
+    autoUpdater.on('checking-for-update', () => {
+        console.log('Checking for update...');
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        console.log('Update available:', info.version);
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        if (mainWindow) {
+            mainWindow.webContents.send('update-message', 'Update available');
+        }
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+        console.log('Update not available.');
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        console.log('Update downloaded:', info.version);
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        if (mainWindow) {
+            mainWindow.webContents.send('update-downloaded');
+        }
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('Update error:', err);
+    });
+
+    // Check on startup if autoCheckUpdates is enabled or we are in build
+    autoUpdater.checkForUpdatesAndNotify();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
