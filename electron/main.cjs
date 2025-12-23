@@ -57,30 +57,58 @@ ipcMain.handle('get-app-version', () => {
 });
 
 ipcMain.on('execute-update', (event, { url }) => {
+    console.log('Update execution started...');
+    console.log('Target URL:', url);
+
     const tempPath = app.getPath('temp');
     const installerPath = path.join(tempPath, 'GunterSetup.exe');
     const currentPid = process.pid;
 
+    console.log('Temp path:', tempPath);
+    console.log('Current PID:', currentPid);
+
+    // Command specifically formatted for a visible PowerShell window
     const psCommand = `
         $Host.UI.RawUI.WindowTitle = "Gunter Updater";
-        Write-Host ">>> Downloading update from GitHub..." -ForegroundColor Cyan;
+        Write-Host ">>> GUNTER AUTO-UPDATER" -ForegroundColor Cyan;
+        Write-Host ">>> URL: ${url}" -ForegroundColor Gray;
+        Write-Host ">>> DOWNLOAD PATH: ${installerPath}" -ForegroundColor Gray;
+        Write-Host "";
+        Write-Host "[1/3] Downloading latest setup..." -ForegroundColor Yellow;
         try {
             Invoke-WebRequest -Uri "${url}" -OutFile "${installerPath}" -ErrorAction Stop;
-            Write-Host ">>> Launching installer..." -ForegroundColor Green;
+            Write-Host ">>> Download complete." -ForegroundColor Green;
+            
+            Write-Host "";
+            Write-Host "[2/3] Launching installer..." -ForegroundColor Yellow;
             Start-Process "${installerPath}";
-            Write-Host ">>> Closing Gunter to allow installation..." -ForegroundColor Yellow;
-            Start-Sleep -Seconds 1;
+            
+            Write-Host "";
+            Write-Host "[3/3] Closing Gunter to allow installation..." -ForegroundColor Yellow;
+            Start-Sleep -Seconds 2;
             Stop-Process -Id ${currentPid} -Force;
         } catch {
-            Write-Host ">>> Error: $($_.Exception.Message)" -ForegroundColor Red;
-            Pause;
+            Write-Host ">>> ERROR: $($_.Exception.Message)" -ForegroundColor Red;
+            Write-Host ">>> Press any key to exit..." -ForegroundColor Red;
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown");
         }
     `;
 
-    spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand], {
-        detached: true,
-        stdio: 'ignore'
-    }).unref();
+    console.log('Final PowerShell command generated.');
+
+    // Use 'start' to ensure a new visible window opens
+    const fullCommand = `start powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand.replace(/"/g, '`"').replace(/\n/g, '')}"`;
+
+    console.log('Launching PowerShell window...');
+
+    const { exec } = require('child_process');
+    exec(fullCommand, (error) => {
+        if (error) {
+            console.error('Failed to launch PowerShell:', error);
+        } else {
+            console.log('PowerShell window launched successfully.');
+        }
+    });
 });
 
 app.whenReady().then(() => {
