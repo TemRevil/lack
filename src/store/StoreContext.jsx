@@ -445,7 +445,7 @@ export const StoreProvider = ({ children }) => {
         // Prefer Electron auto-updater when running in Electron
         if (window.electron && window.electron.checkForUpdates) {
             try {
-                if (manual) window.showToast?.(settings.language === 'ar' ? 'جاري البحث عن تحديثات...' : 'Checking for updates...', 'info');
+                if (manual) window.showToast?.(data.settings.language === 'ar' ? 'جاري البحث عن تحديثات...' : 'Checking for updates...', 'info');
                 const res = await window.electron.checkForUpdates(manual);
 
                 // res usually contains updateInfo etc. The actual update events are emitted via IPC and handled elsewhere.
@@ -458,7 +458,7 @@ export const StoreProvider = ({ children }) => {
                 return { updateFound: false, version: await window.electron.getAppVersion() };
             } catch (err) {
                 console.error('Electron update check failed:', err);
-                if (manual) addNotification(settings.language === 'ar' ? 'فشل التحقق من التحديثات' : 'Failed to check updates', 'danger');
+                if (manual) addNotification(data.settings.language === 'ar' ? 'فشل التحقق من التحديثات' : 'Failed to check updates', 'danger');
                 return { error: true };
             }
         }
