@@ -527,21 +527,24 @@ export const StoreProvider = ({ children }) => {
             addNotification(translations[data.settings.language].updateAvailable.replace('%v', info.version || ''), 'info');
         };
         const onDownloaded = (info) => {
-            const message = settings.language === 'ar' ? 'تم تنزيل التحديث. هل تريد تثبيته الآن؟' : 'Update downloaded. Install now?';
+            const lang = data.settings?.language || 'en';
+            const message = lang === 'ar' ? 'تم تنزيل التحديث. هل تريد تثبيته الآن؟' : 'Update downloaded. Install now?';
             if (window.confirm(message)) {
                 window.electron.installUpdate();
             } else {
-                addNotification(settings.language === 'ar' ? 'التحديث جاهز للتثبيت لاحقًا' : 'Update ready to install', 'info');
+                addNotification(lang === 'ar' ? 'التحديث جاهز للتثبيت لاحقًا' : 'Update ready to install', 'info');
             }
         };
         const onError = (err) => {
-            addNotification(settings.language === 'ar' ? 'خطأ في التحديث' : 'Update error', 'danger');
+            const lang = data.settings?.language || 'en';
+            addNotification(lang === 'ar' ? 'خطأ في التحديث' : 'Update error', 'danger');
             console.error('Updater error:', err);
         };
         const onProgress = (progress) => {
             // Simple progress notification - can be improved
+            const lang = data.settings?.language || 'en';
             if (progress && progress.percent) {
-                addNotification(settings.language === 'ar' ? `جاري التنزيل: ${Math.round(progress.percent)}%` : `Downloading: ${Math.round(progress.percent)}%`, 'info');
+                addNotification(lang === 'ar' ? `جاري التنزيل: ${Math.round(progress.percent)}%` : `Downloading: ${Math.round(progress.percent)}%`, 'info');
             }
         };
 
@@ -553,7 +556,7 @@ export const StoreProvider = ({ children }) => {
         return () => {
             // No-op: ipcRenderer.on doesn't return unsubscribe; in preload they are simple additions - leave it as-is for now
         };
-    }, [data.settings.language, settings.language]);
+    }, [data.settings.language]);
 
     const value = {
         data,
