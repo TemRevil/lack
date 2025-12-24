@@ -4,6 +4,14 @@ const { spawn } = require('child_process');
 const https = require('https');
 const fs = require('fs');
 
+// Electron-updater and logging
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+log.transports.file.resolvePath = () => path.join(app.getPath('userData'), 'logs', 'main.log');
+autoUpdater.logger = log;
+autoUpdater.autoDownload = false; // we will control download manually
+
 function createWindow() {
     const isDev = !app.isPackaged;
     const iconPath = isDev
@@ -28,6 +36,32 @@ function createWindow() {
     } else {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
     }
+
+    // Wire auto-updater events to renderer
+    autoUpdater.on('checking-for-update', () => {
+        mainWindow.webContents.send('update-log', 'Checking for updates...');
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        mainWindow.webContents.send('update-available', info);
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+        mainWindow.webContents.send('update-not-available', info);
+    });
+
+    autoUpdater.on('error', (err) => {
+        log.error('AutoUpdater error:', err);
+        mainWindow.webContents.send('update-error', err);
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+        mainWindow.webContents.send('update-download-progress', progress);
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        mainWindow.webContents.send('update-downloaded', info);
+    });
 }
 
 ipcMain.on('show-notification', (event, { title, body }) => {
@@ -51,6 +85,40 @@ ipcMain.handle('get-app-version', () => {
     return app.getVersion();
 });
 
+// New auto-update IPC handlers
+ipcMain.handle('check-for-updates', async (_event, manual = false) => {
+    try {
+        if (process.env.UPDATE_URL) {
+            autoUpdater.setFeedURL({ url: process.env.UPDATE_URL });
+        }
+        const res = await autoUpdater.checkForUpdates();
+        return res;
+    } catch (err) {
+        log.warn('check-for-updates failed', err);
+        throw err;
+    }
+});
+
+ipcMain.handle('download-update', async () => {
+    try {
+        await autoUpdater.downloadUpdate();
+        return true;
+    } catch (err) {
+        log.error('download-update failed', err);
+        throw err;
+    }
+});
+
+ipcMain.handle('install-update', () => {
+    try {
+        autoUpdater.quitAndInstall();
+    } catch (err) {
+        log.error('install-update failed', err);
+        throw err;
+    }
+});
+
+// Keep legacy execute-update handler as a fallback but mark deprecated
 ipcMain.on('execute-update', (event, { url }) => {
     const mainWindow = BrowserWindow.getAllWindows()[0];
     const sendLog = (msg) => {
@@ -60,7 +128,7 @@ ipcMain.on('execute-update', (event, { url }) => {
         }
     };
 
-    sendLog('Update execution started...');
+    sendLog('Legacy update execution started...');
     sendLog(`Download URL: ${url}`);
 
     const installerPath = path.join(app.getPath('temp'), 'GunterSetup.exe');

@@ -442,9 +442,29 @@ export const StoreProvider = ({ children }) => {
     };
 
     const checkAppUpdates = async (manual = false) => {
-        if (!window.electron) return { error: 'not_electron' };
+        // Prefer Electron auto-updater when running in Electron
+        if (window.electron && window.electron.checkForUpdates) {
+            try {
+                if (manual) window.showToast?.(settings.language === 'ar' ? 'جاري البحث عن تحديثات...' : 'Checking for updates...', 'info');
+                const res = await window.electron.checkForUpdates(manual);
+
+                // res usually contains updateInfo etc. The actual update events are emitted via IPC and handled elsewhere.
+                if (res && res.updateInfo && res.updateInfo.version && res.updateInfo.version !== (await window.electron.getAppVersion())) {
+                    // Let the renderer event listeners handle notifications and download prompts
+                    return { updateFound: true, version: res.updateInfo.version };
+                }
+
+                if (manual) addNotification(translations[data.settings.language].upToDate.replace('%v', await window.electron.getAppVersion()), 'success');
+                return { updateFound: false, version: await window.electron.getAppVersion() };
+            } catch (err) {
+                console.error('Electron update check failed:', err);
+                if (manual) addNotification(settings.language === 'ar' ? 'فشل التحقق من التحديثات' : 'Failed to check updates', 'danger');
+                return { error: true };
+            }
+        }
+
+        // Fallback: non-electron environment or no updater available - existing Firestore check
         try {
-            // Get current version from Electron
             let currentVersion = '1.0.0';
             if (window.electron?.getAppVersion) {
                 currentVersion = await window.electron.getAppVersion();
@@ -472,11 +492,6 @@ export const StoreProvider = ({ children }) => {
                         if (manual) addNotification("Update file not available", "warning");
                         return { error: true, message: "Update file not found" };
                     }
-
-                    addNotification(translations[data.settings.language].updateAvailable.replace('%v', latestVersion), 'info');
-
-                    // Return positive if update found for UI feedback
-                    return { updateFound: true, version: latestVersion, url: downloadURL };
                 } else if (manual) {
                     addNotification(translations[data.settings.language].upToDate.replace('%v', currentVersion), 'success');
                 }
@@ -503,6 +518,42 @@ export const StoreProvider = ({ children }) => {
         }
         return false;
     };
+
+    // Setup Electron auto-updater IPC listeners (if available)
+    React.useEffect(() => {
+        if (!window.electron) return;
+
+        const onAvailable = (info) => {
+            addNotification(translations[data.settings.language].updateAvailable.replace('%v', info.version || ''), 'info');
+        };
+        const onDownloaded = (info) => {
+            const message = settings.language === 'ar' ? 'تم تنزيل التحديث. هل تريد تثبيته الآن؟' : 'Update downloaded. Install now?';
+            if (window.confirm(message)) {
+                window.electron.installUpdate();
+            } else {
+                addNotification(settings.language === 'ar' ? 'التحديث جاهز للتثبيت لاحقًا' : 'Update ready to install', 'info');
+            }
+        };
+        const onError = (err) => {
+            addNotification(settings.language === 'ar' ? 'خطأ في التحديث' : 'Update error', 'danger');
+            console.error('Updater error:', err);
+        };
+        const onProgress = (progress) => {
+            // Simple progress notification - can be improved
+            if (progress && progress.percent) {
+                addNotification(settings.language === 'ar' ? `جاري التنزيل: ${Math.round(progress.percent)}%` : `Downloading: ${Math.round(progress.percent)}%`, 'info');
+            }
+        };
+
+        window.electron.onUpdateAvailable(onAvailable);
+        window.electron.onUpdateDownloaded(onDownloaded);
+        window.electron.onUpdateError(onError);
+        window.electron.onUpdateDownloadProgress(onProgress);
+
+        return () => {
+            // No-op: ipcRenderer.on doesn't return unsubscribe; in preload they are simple additions - leave it as-is for now
+        };
+    }, [data.settings.language, settings.language]);
 
     const value = {
         data,

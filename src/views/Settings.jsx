@@ -324,8 +324,19 @@ const Settings = () => {
                                         onClick={async () => {
                                             window.showToast?.(settings.language === 'ar' ? 'جاري البحث عن تحديثات...' : 'Checking for updates...', 'info');
                                             const result = await checkAppUpdates(true);
-                                            if (result?.updateFound && result?.url) {
-                                                // Provide an option to open the URL
+
+                                            if (window.electron && result?.updateFound) {
+                                                // Using Electron auto-updater: prompt to download
+                                                if (window.confirm(settings.language === 'ar' ? 'يوجد تحديث جديد. هل تريد تنزيله الآن؟' : 'New update found. Download it now?')) {
+                                                    try {
+                                                        await window.electron.downloadUpdate();
+                                                        window.showToast?.(settings.language === 'ar' ? 'جاري تنزيل التحديث...' : 'Downloading update...', 'info');
+                                                    } catch (err) {
+                                                        window.showToast?.(settings.language === 'ar' ? 'فشل تنزيل التحديث' : 'Failed to download update', 'danger');
+                                                    }
+                                                }
+                                            } else if (result?.updateFound && result?.url) {
+                                                // Non-electron fallback: open URL
                                                 if (window.confirm(settings.language === 'ar' ? 'يوجد تحديث جديد. هل تريد البدء في التثبيت التلقائي؟' : 'New update found. Do you want to start the automatic installation?')) {
                                                     if (window.electron?.executeUpdate) {
                                                         window.electron.executeUpdate(result.url);
