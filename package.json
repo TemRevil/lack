@@ -1,7 +1,7 @@
 {
   "name": "gunter-management-system",
   "private": true,
-  "version": "1.10.16",
+  "version": "1.10.17",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Mechanical Workshop Management System",
@@ -47,7 +47,13 @@
       "public/**/*",
       "package.json"
     ],
-    "publish": [{ "provider": "github", "owner": "TemRevil", "repo": "gunter" }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "TemRevil",
+        "repo": "gunter"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "public/icon.png"
