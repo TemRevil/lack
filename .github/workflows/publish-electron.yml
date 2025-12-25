@@ -43,20 +43,25 @@ jobs:
       - name: Build & publish
         run: npm run electron:build -- --publish=always
 
-      - name: Verify published assets
+      - name: Verify published assets (with retries)
         shell: bash
         run: |
           echo "Checking release assets for tag $GITHUB_REF_NAME..."
           TAG=${GITHUB_REF_NAME#refs/tags/}
           echo "Tag: $TAG"
-          # Check that latest.yml is accessible
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/latest.yml"
           echo "Checking $URL"
-          if curl -I -f "$URL" >/dev/null 2>&1; then
-            echo "latest.yml is reachable"
-          else
-            echo "ERROR: latest.yml not reachable"; exit 1
-          fi
+          # Retry with backoff up to ~1min
+          for i in {1..8}; do
+            if curl -I -f "$URL" >/dev/null 2>&1; then
+              echo "latest.yml is reachable"
+              exit 0
+            fi
+            echo "Attempt $i: latest.yml not reachable yet — sleeping $((i*5))s..."
+            sleep $((i*5))
+          done
+          echo "ERROR: latest.yml not reachable after retries" >&2
+          exit 1
 
 # Notes:
 # - Create a repository secret named `ACTIONS_DEPLOY_TOKEN` (fine-grained or classic PAT) with permission to create Releases and upload assets (repo:packages or Releases write access).
