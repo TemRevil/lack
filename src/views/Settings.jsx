@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 import {
     Settings as SettingsIcon, Moon, Sun, Download,
     Upload, FileText, Lock, ShieldAlert, Globe, Eye, EyeOff, Key,
-    UserCheck, FileBarChart, Palette, Save, Printer, ShieldCheck
+    UserCheck, FileBarChart, Palette, Save, Printer, ShieldCheck, Phone
 } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
 
@@ -109,6 +109,27 @@ const LicenseSection = ({ settings, setData, t, licenseData }) => (
                     </button>
                 </div>
             </div>
+
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                {/* WhatsApp contact button for license inquiries */}
+                <a
+                    href={`https://wa.me/201001308280?text=${encodeURIComponent(t('whatsappMessage'))}`}
+                    onClick={(e) => {
+                        const url = `https://wa.me/201001308280?text=${encodeURIComponent(t('whatsappMessage'))}`;
+                        if (window.electron?.openExternal) {
+                            e.preventDefault();
+                            window.electron.openExternal(url);
+                        }
+                    }}
+                    className="btn btn-secondary"
+                    style={{ borderRadius: 'var(--radius-md)', padding: '0.6rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                    target="_blank" rel="noreferrer noopener"
+                >
+                    <Phone size={16} />
+                    <span>{t('callUs')}</span>
+                </a>
+            </div>
+
         </div>
     </section>
 );
