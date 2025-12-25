@@ -34,7 +34,39 @@ function createWindow() {
         mainWindow.loadURL('http://localhost:5173');
         mainWindow.webContents.openDevTools();
     } else {
-        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+        const { pathToFileURL } = require('url');
+        const indexPath = path.join(__dirname, '../dist/index.html');
+
+        try {
+            if (fs.existsSync(indexPath)) {
+                log.info('Loading index from:', indexPath);
+                mainWindow.loadFile(indexPath);
+            } else {
+                // Try to handle cases where files are inside the asar archive or packaged differently
+                const altPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html');
+                log.warn(`Index not found at ${indexPath}. Trying ${altPath}`);
+                if (fs.existsSync(altPath)) {
+                    mainWindow.loadURL(pathToFileURL(altPath).href);
+                } else {
+                    const fallbackUrl = pathToFileURL(indexPath).href;
+                    log.error(`Neither ${indexPath} nor ${altPath} exist. Will attempt loading ${fallbackUrl}`);
+                    mainWindow.loadURL(fallbackUrl);
+                }
+            }
+        } catch (err) {
+            log.error('Error loading index.html:', err);
+            // Attempt a last-ditch load using file URL
+            try {
+                mainWindow.loadURL(pathToFileURL(indexPath).href);
+            } catch (err2) {
+                log.error('Fallback loadURL also failed:', err2);
+            }
+        }
+
+        // Helpful diagnostics if something goes wrong while loading renderer
+        mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            log.error('Renderer failed to load:', { errorCode, errorDescription, validatedURL });
+        });
     }
 
     // Wire auto-updater events to renderer
