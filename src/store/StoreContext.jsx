@@ -455,7 +455,10 @@ export const StoreProvider = ({ children }) => {
         // Prefer Electron auto-updater when running in Electron
         if (window.electron && window.electron.checkForUpdates) {
             try {
-                if (manual) window.showToast?.(translations[data.settings.language].checkingForUpdates || 'Checking for updates...', 'info');
+                if (manual) {
+                    window.showToast?.(translations[data.settings.language].checkingForUpdates || 'Checking for updates...', 'info');
+                    setUpdateState(prev => ({ ...prev, checking: true }));
+                }
 
                 const res = await window.electron.checkForUpdates(manual);
 
@@ -552,17 +555,12 @@ export const StoreProvider = ({ children }) => {
             addNotification(translations[data.settings.language].updateAvailableNoDownloading.replace('%v', info.version || ''), 'info');
         };
         const onNotAvailable = (info) => {
-            // If we were manually checking (or just in general), let the user know they are up to date if the UI expects it
-            // We can infer it was a manual check if we wanted, or just log it.
-            // But for manual checks via the button, we often rely on the promise result. 
-            // However, relying on the listener is safer for async flows.
-
-            // We can check if we were in a 'checking' state if we tracked that better.
-            // For now, let's just log or maybe show a toast if it was a user action.
-            console.log('Update not available:', info);
-
-            // Optionally show a toast if the user just clicked "Check for updates"
-            // But we don't have 'isManualCheck' state here easily. 
+            // Check if we were actively requesting an update check
+            if (updateState.checking) {
+                const currentV = info.version || 'unknown';
+                addNotification(translations[data.settings.language].upToDate.replace('%v', currentV), 'success');
+            }
+            setUpdateState(prev => ({ ...prev, checking: false }));
         };
         const onDownloaded = (info) => {
             setUpdateState(prev => ({ ...prev, downloaded: true, downloading: false, progress: 100 }));
