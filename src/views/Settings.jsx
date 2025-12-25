@@ -13,7 +13,7 @@ const LicenseSection = ({ settings, setData, t, licenseData }) => (
                 <ShieldCheck size={20} />
             </div>
             <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('license')}</h3>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('activation')}</h3>
             </div>
         </header>
 
@@ -246,7 +246,7 @@ const Settings = () => {
     };
 
     const tabs = [
-        { id: 'general', label: t('language') + ' & ' + t('darkMode'), icon: <Palette size={20} /> },
+        { id: 'general', label: t('appearanceAndLanguage'), icon: <Palette size={20} /> },
         { id: 'security', label: t('securityPermissions'), icon: <ShieldAlert size={20} /> },
         { id: 'receipt', label: t('receiptSettings'), icon: <FileText size={20} /> },
         { id: 'data', label: t('backupAndDisplay'), icon: <Save size={20} /> },
@@ -291,7 +291,7 @@ const Settings = () => {
                                     {settings.theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('theme')}</h3>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('appearanceAndLanguage')}</h3>
                                 </div>
                             </header>
                             <div className="settings-item-row" onClick={toggleTheme} style={{ padding: '0.75rem', marginBottom: '0.5rem' }}>
