@@ -1,0 +1,8 @@
+version: 1.10.18
+files:
+  - url: Gunter-Management-System-Setup-1.10.18.exe
+    sha512: D3c0jiZoZEWh1Sn2pjLILmJRXj2XchB9+lmQ2OhBHi/KN3vknGItLLmms7ZMY+kXhv+ygMjuUsBy/8nMcXcswA==
+    size: 91288386
+path: Gunter-Management-System-Setup-1.10.18.exe
+sha512: D3c0jiZoZEWh1Sn2pjLILmJRXj2XchB9+lmQ2OhBHi/KN3vknGItLLmms7ZMY+kXhv+ygMjuUsBy/8nMcXcswA==
+releaseDate: '2025-12-25T17:46:16.515Z'
