@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Key, Globe } from 'lucide-react';
+
+// Keep icon simple for the WhatsApp button (reuse Key icon)
 import { useStore } from '../store/StoreContext';
 
 const LicenseScreen = ({ onActivate }) => {
@@ -72,8 +74,27 @@ const LicenseScreen = ({ onActivate }) => {
                     <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem' }} disabled={loading}>
                         {loading ? (settings.language === 'ar' ? 'جاري التحقق...' : 'Verifying...') : (<><Key size={18} /> {t('activateNow')}</>)}
                     </button>
-                    <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {t('licenseWarning')}
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        <a
+                            href={`https://wa.me/201001308280?text=${encodeURIComponent(t('whatsappMessage'))}`}
+                            onClick={(e) => {
+                                const url = `https://wa.me/201001308280?text=${encodeURIComponent(t('whatsappMessage'))}`;
+                                if (window.electron?.openExternal) {
+                                    e.preventDefault();
+                                    window.electron.openExternal(url);
+                                }
+                            }}
+                            className="btn btn-secondary"
+                            style={{ borderRadius: 'var(--radius-md)', padding: '0.6rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                            target="_blank" rel="noreferrer noopener"
+                        >
+                            <Key size={16} />
+                            <span>{t('callUs')}</span>
+                        </a>
+                        <div style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                            {t('licenseWarning')}
+                        </div>
                     </div>
                 </form>
             </div>
