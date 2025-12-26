@@ -15,6 +15,7 @@ const defaultData = {
     customers: [],
     notifications: [],
     transactions: [],
+    activeSessionDate: null,
     settings: {
         theme: 'light',
         loginPassword: '0',
@@ -68,6 +69,7 @@ export const StoreProvider = ({ children }) => {
                 return {
                     ...defaultData,
                     ...parsed,
+                    activeSessionDate: parsed.activeSessionDate || null,
                     settings: finalSettings
                 };
             } catch (e) {
@@ -278,9 +280,9 @@ export const StoreProvider = ({ children }) => {
             const updatedCustomers = prev.customers.map(c =>
                 c.id === op.customerId ? { ...c, balance: (c.balance || 0) + balanceChange } : c
             );
-
             return {
                 ...prev,
+                activeSessionDate: prev.activeSessionDate || new Date().toISOString().split('T')[0],
                 operations: [...prev.operations, newOp],
                 parts: updatedParts,
                 customers: updatedCustomers
@@ -371,9 +373,9 @@ export const StoreProvider = ({ children }) => {
             const updatedCustomers = prev.customers.map(c =>
                 c.id === customerId ? { ...c, balance: (c.balance || 0) + balanceChange } : c
             );
-
             return {
                 ...prev,
+                activeSessionDate: prev.activeSessionDate || new Date().toISOString().split('T')[0],
                 transactions: [...(prev.transactions || []), tx],
                 customers: updatedCustomers
             };
@@ -641,9 +643,12 @@ export const StoreProvider = ({ children }) => {
         toggleTheme,
         updateReceiptSettings,
         getDailyCollectedTotal,
+        exportData,
         importData,
         setData,
         recordDirectTransaction,
+        finishSession: () => setData(prev => ({ ...prev, activeSessionDate: null })),
+        activeSessionDate: data.activeSessionDate,
         licenseData,
         checkAppUpdates,
         // Updater helpers & state

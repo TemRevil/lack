@@ -679,6 +679,12 @@ textarea {
     flex-direction: column;
 }
 
+@media (max-width: 480px) {
+    .modal {
+        padding: 1.5rem;
+    }
+}
+
 .modal-body {
     flex: 1;
     overflow-y: auto;

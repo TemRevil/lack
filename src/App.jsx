@@ -17,13 +17,14 @@ import { Menu } from 'lucide-react';
 function App() {
     const {
         isLicensed, activateLicense, settings,
-        notifications, checkAppUpdates
+        notifications, checkAppUpdates, activeSessionDate, finishSession
     } = useStore();
 
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [currentTab, setCurrentTab] = useState('operations');
     const [isMobileShow, setIsMobileShow] = useState(false);
     const [isEndSessionOpen, setIsEndSessionOpen] = useState(false);
+    const [enforcedSessionDate, setEnforcedSessionDate] = useState(null);
 
     useEffect(() => {
         document.documentElement.lang = settings.language || 'ar';
@@ -47,6 +48,7 @@ function App() {
 
             if (e.key === 'Escape') {
                 if (isEndSessionOpen) {
+                    if (enforcedSessionDate) return; // Prevent closing if enforced
                     setIsEndSessionOpen(false);
                     return;
                 }
@@ -70,6 +72,23 @@ function App() {
             checkAppUpdates();
         }
     }, [isLoggedIn, settings.autoCheckUpdates]);
+
+    // Daily Session End Check
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        const checkDate = () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (activeSessionDate && activeSessionDate !== todayStr) {
+                setEnforcedSessionDate(activeSessionDate);
+                setIsEndSessionOpen(true);
+            }
+        };
+
+        checkDate(); // On mount/login
+        const interval = setInterval(checkDate, 60000); // Check every minute for day change
+        return () => clearInterval(interval);
+    }, [isLoggedIn, activeSessionDate]);
 
     const [updateState, setUpdateState] = useState({ show: false, progress: 0, message: '' });
 
@@ -206,9 +225,14 @@ function App() {
 
                     <EndSessionModal
                         isOpen={isEndSessionOpen}
-                        onClose={() => setIsEndSessionOpen(false)}
+                        sessionDate={enforcedSessionDate}
+                        onClose={() => {
+                            if (!enforcedSessionDate) setIsEndSessionOpen(false);
+                        }}
                         onFinish={() => {
+                            finishSession();
                             setIsEndSessionOpen(false);
+                            setEnforcedSessionDate(null);
                             setIsLoggedIn(false);
                         }}
                     />
