@@ -77,6 +77,7 @@ export const translations = {
         debt: 'دين',
         unpaid: 'غير مدفوع',
         time: 'الوقت',
+        print: 'طباعة',
 
         // Storage
         totalItems: 'إجمالي الأصناف',
@@ -230,6 +231,12 @@ export const translations = {
         downloading: 'جاري التحميل...',
         downloadComplete: 'اكتمل التحميل!',
         installingUpdate: 'جاري تثبيت التحديث...',
+        onHim: 'عليه',
+        forHim: 'له',
+        currentBalance: 'الرصيد الحالي',
+        viewReceipt: 'عرض الفاتورة',
+        previewAndPrint: 'معاينة وطباعة الفاتورة',
+        unitPrice: 'سعر الوحدة',
     },
     en: {
         appName: 'Gunter',
@@ -309,6 +316,7 @@ export const translations = {
         debt: 'Debt',
         unpaid: 'Unpaid',
         time: 'Time',
+        print: 'Print',
 
         // Storage
         totalItems: 'Total Items',
@@ -462,5 +470,11 @@ export const translations = {
         downloading: 'Downloading...',
         downloadComplete: 'Download complete!',
         installingUpdate: 'Installing update...',
+        onHim: 'Owes us',
+        forHim: 'Credit',
+        currentBalance: 'Current Balance',
+        viewReceipt: 'View Receipt',
+        previewAndPrint: 'Preview and print the invoice',
+        unitPrice: 'Unit Price',
     }
 };

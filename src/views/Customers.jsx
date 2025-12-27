@@ -182,12 +182,15 @@ const Customers = () => {
                                             <span className="badge danger">
                                                 <AlertCircle size={12} strokeWidth={3} />
                                                 {(customer.balance || 0).toLocaleString()}
-                                                <span style={{ fontSize: '0.75em', opacity: 0.8, marginInlineStart: '3px', fontWeight: 500 }}>({t('debt')})</span>
+                                                <span style={{ fontSize: '0.75em', opacity: 0.8, marginInlineStart: '3px', fontWeight: 500 }}>({t('onHim')})</span>
                                             </span>
                                         ) : (
                                             <span className="badge success">
                                                 <CheckCircle2 size={12} strokeWidth={3} />
-                                                {(customer.balance || 0).toLocaleString()}
+                                                {Math.abs(customer.balance || 0).toLocaleString()}
+                                                {(customer.balance || 0) < 0 && (
+                                                    <span style={{ fontSize: '0.75em', opacity: 0.8, marginInlineStart: '3px', fontWeight: 500 }}>({t('forHim')})</span>
+                                                )}
                                             </span>
                                         )}
                                     </td>
@@ -263,9 +266,12 @@ const Customers = () => {
                     return (
                         <div className="summary-box" style={{ background: 'var(--bg-input)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                                <span style={{ fontWeight: 600 }}>{settings.language === 'ar' ? 'إجمالي المديونية الحالية:' : 'Total Current Debt:'}</span>
+                                <span style={{ fontWeight: 600 }}>{t('currentBalance')}:</span>
                                 <span style={{ fontSize: 'var(--fs-h2)', fontWeight: 800, color: bal > 0 ? 'var(--danger-color)' : 'var(--success-color)', marginInlineStart: '10px' }}>
                                     {Math.abs(bal).toLocaleString()}
+                                </span>
+                                <span style={{ fontSize: 'var(--fs-sm)', opacity: 0.7, marginInlineStart: '5px' }}>
+                                    ({bal >= 0 ? t('onHim') : t('forHim')})
                                 </span>
                             </div>
                             <button className="btn btn-secondary" onClick={() => handlePrintDebts(currentCust)}>

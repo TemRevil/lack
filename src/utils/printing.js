@@ -1,351 +1,447 @@
 import { translations } from './translations';
 
-export const printReceipt = (op, settings) => {
-    const isAr = settings.language === 'ar';
-    const lang = settings.language || 'ar';
-    const t = (key) => translations[lang][key] || key;
+export const generateReceiptHtml = (op, settings) => {
+    const isAr = settings?.language === 'ar';
+    const lang = settings?.language || 'en';
+    const t = (key) => translations[lang]?.[key] || key;
 
-    const receipt = settings.receipt || {
-        title: settings.receiptTitle || t('defaultReceiptTitle'),
-        address: settings.receiptAddress || t('defaultReceiptAddress'),
-        phone: settings.receiptPhone || '',
-        footer: settings.receiptFooter || t('defaultReceiptFooter')
+    const receipt = settings?.receipt || {
+        title: settings?.receiptTitle || t('defaultReceiptTitle'),
+        address: settings?.receiptAddress || t('defaultReceiptAddress'),
+        phone: settings?.receiptPhone || '',
+        footer: settings?.receiptFooter || t('defaultReceiptFooter')
     };
 
-    // Final fallback if specific object properties are empty strings
     if (!receipt.title) receipt.title = t('defaultReceiptTitle');
     if (!receipt.address) receipt.address = t('defaultReceiptAddress');
     if (!receipt.footer) receipt.footer = t('defaultReceiptFooter');
+
     const today = new Date(op.timestamp || new Date());
-    const todayStr = today.toLocaleDateString(isAr ? 'ar-EG' : 'en-US');
+    const dateStr = today.toLocaleDateString(isAr ? 'ar-EG' : 'en-US');
     const timeStr = today.toLocaleTimeString(isAr ? 'ar-EG' : 'en-US');
 
-    const debt = op.price - op.paidAmount;
-    const paidText = isAr
-        ? (op.paymentStatus === 'paid' ? 'دفع بالكامل' : (op.paymentStatus === 'partial' ? 'دفع جزئي' : 'آجل'))
-        : (op.paymentStatus === 'paid' ? 'Fully Paid' : (op.paymentStatus === 'partial' ? 'Partial' : 'Debt'));
+    const opTotal = parseFloat(op.price || 0);
+    const opPaid = parseFloat(op.paidAmount || 0);
+    const debt = opTotal - opPaid;
+
+    const balanceText = debt > 0
+        ? `${t('onHim')}: ${debt.toLocaleString()}`
+        : (debt < 0 ? `${t('forHim')}: ${Math.abs(debt).toLocaleString()}` : `${t('remaining')}: 0`);
+
+    const paymentStatusText = op.paymentStatus === 'paid'
+        ? t('fullyPaid')
+        : (op.paymentStatus === 'partial' ? t('partial') : t('unpaid'));
 
     const labels = {
-        title: isAr ? 'فاتورة بيع' : 'Sales Invoice',
-        address: isAr ? 'العنوان' : 'Address',
-        phone: isAr ? 'تليفون' : 'Phone',
-        desc: isAr ? 'الوصف' : 'Description',
-        price: isAr ? 'السعر' : 'Price',
-        qty: isAr ? 'الكمية' : 'Qty',
-        total: isAr ? 'الإجمالي' : 'Total',
-        cash: isAr ? 'المدفوع' : 'Cash',
-        remaining: isAr ? 'المتبقي/الدين' : 'Remaining/Debt',
-        customer: isAr ? 'العميل' : 'Customer',
-        date: isAr ? 'التاريخ' : 'Date',
-        status: isAr ? 'حالة الدفع' : 'Payment Status',
-        thanks: isAr ? 'شكراً لزيارتكم!' : 'Thank you for your visit!'
+        retailReceipt: isAr ? 'فاتورة بيع' : 'RETAIL RECEIPT',
+        phone: t('phone'),
+        date: t('date'),
+        time: t('time'),
+        customer: t('customer'),
+        status: t('paymentStatus'),
+        itemDescription: isAr ? 'الصنف / الخدمة' : 'Item / Service',
+        qty: t('qty'),
+        total: t('total'),
+        subtotal: isAr ? 'الإجمالي الفرعي' : 'Subtotal',
+        paid: isAr ? 'المدفوع' : 'Cash Paid',
+        grandTotal: isAr ? 'الإجمالي النهائي' : 'GRAND TOTAL',
+        balance: t('currentBalance') || (isAr ? 'رصيد الحساب' : 'Account Balance'),
+        thankYou: isAr ? 'شكراً لثقتكم بنا!' : 'Thank you for choosing us!'
     };
 
     const items = op.items || [{ partName: op.partName, quantity: op.quantity, price: op.price }];
 
     const extraInputsHtml = (op.extraInputs || [])
         .filter(inp => inp.value?.trim())
-        .map(inp => `<p>${inp.label}: ${inp.value}</p>`)
+        .map(inp => `<p style="margin:2px 0;">${inp.label}: ${inp.value}</p>`)
         .join('');
 
-    const html = `
+    return `
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif, system-ui; }
-            body { background: white; padding: 10px; width: 80mm; margin: 0 auto; direction: ${isAr ? 'rtl' : 'ltr'}; }
-            .receipt { width: 100%; border: 1px solid #eee; padding: 10px; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .header h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 5px; }
-            .header p { font-size: 0.8rem; color: #555; line-height: 1.4; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .stars { text-align: center; font-size: 1rem; margin: 5px 0; }
-            .title { text-align: center; font-weight: 700; font-size: 1.1rem; margin-bottom: 5px; }
-            .table { width: 100%; margin-bottom: 10px; border-collapse: collapse; }
-            .table th { border-bottom: 1px solid #000; padding: 5px 0; font-size: 0.85rem; text-align: ${isAr ? 'right' : 'left'}; }
-            .table td { padding: 8px 0; font-size: 0.9rem; vertical-align: top; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.95rem; }
-            .row-bold { font-weight: 700; font-size: 1.2rem; margin-top: 5px; }
-            .footer { text-align: center; margin-top: 25px; }
-            .footer p { font-size: 0.9rem; font-weight: 600; }
-            .barcode { margin-top: 15px; height: 30px; background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px); opacity: 0.5; }
-            @media print { body { width: 100%; padding: 0; } .receipt { border: none; } }
+            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;600;700;800&display=swap');
+            
+            .receipt-content-wrapper { 
+                background: white; 
+                padding: 15px; 
+                width: 80mm; 
+                margin: 0 auto; 
+                color: #000;
+                direction: ${isAr ? 'rtl' : 'ltr'};
+                font-family: ${isAr ? "'Cairo', sans-serif" : "'Inter', sans-serif"};
+            }
+            .receipt-content-wrapper * { margin: 0; padding: 0; box-sizing: border-box; }
+            
+            .receipt-header { text-align: center; margin-bottom: 12px; }
+            .receipt-header h1 { font-size: 1.6rem; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.5px; }
+            .receipt-header p { font-size: 0.75rem; color: #444; line-height: 1.3; }
+            
+            .receipt-type-badge { 
+                text-align: center;
+                font-weight: 800;
+                font-size: 0.95rem;
+                background: #000;
+                color: #fff;
+                padding: 6px;
+                border-radius: 4px;
+                margin: 15px 0;
+                letter-spacing: ${isAr ? '0' : '2px'};
+            }
+
+            .info-section { 
+                font-size: 0.75rem; 
+                margin-bottom: 15px;
+                border-bottom: 1px dashed #ccc;
+                padding-bottom: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+            .info-row { display: flex; justify-content: space-between; }
+            .info-row b { color: #555; }
+
+            .receipt-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+            .receipt-table th { 
+                font-size: 0.7rem; 
+                text-transform: uppercase; 
+                border-bottom: 2px solid #000; 
+                padding: 6px 0;
+                color: #000;
+                text-align: ${isAr ? 'right' : 'left'};
+            }
+            .receipt-table td { 
+                padding: 8px 0; 
+                font-size: 0.8rem; 
+                border-bottom: 1px solid #eee;
+                vertical-align: middle;
+            }
+            
+            .unit-price { font-size: 0.65rem; color: #666; display: block; margin-top: 2px; }
+
+            .totals-section { margin-top: 15px; }
+            .total-row { 
+                display: flex; 
+                justify-content: space-between; 
+                padding: 5px 0;
+                font-size: 0.9rem;
+            }
+            .total-row.grand-total { 
+                font-weight: 800; 
+                font-size: 1.2rem; 
+                border-top: 2px solid #000; 
+                margin-top: 5px; 
+                padding-top: 8px;
+            }
+
+            .balance-container {
+                margin: 15px 0;
+                padding: 10px;
+                border: 2px solid #000;
+                border-radius: 6px;
+                text-align: center;
+                background: #fdfdfd;
+            }
+            .balance-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #666; margin-bottom: 4px; }
+            .balance-value { font-size: 1.1rem; font-weight: 800; }
+
+            .footer-note { 
+                text-align: center; 
+                margin-top: 25px; 
+                font-size: 0.75rem; 
+                color: #444;
+            }
+            .social-divider { text-align: center; color: #ccc; margin: 12px 0; font-size: 0.8rem; }
+            
+            @media print {
+                .receipt-content-wrapper { padding: 0; width: 100%; }
+            }
         </style>
-        <div class="receipt">
-            <div class="header">
+
+        <div class="receipt-content-wrapper">
+            <div class="receipt-header">
                 <h1>${receipt.title}</h1>
-                <p>${labels.address}: ${receipt.address}</p>
+                <p>${receipt.address}</p>
                 <p>${labels.phone}: ${receipt.phone}</p>
-                ${extraInputsHtml}
+                <div style="font-size: 0.7rem; color: #666; margin-top: 4px;">${extraInputsHtml}</div>
             </div>
-            
-            <div class="stars">*********************</div>
-            <div class="title">${labels.title}</div>
-            <div class="stars">*********************</div>
-            
-            <table class="table">
+
+            <div class="receipt-type-badge">${labels.retailReceipt}</div>
+
+            <div class="info-section">
+                <div class="info-row">
+                    <span><b>${labels.date}:</b> ${dateStr}</span>
+                    <span><b>${labels.time}:</b> ${timeStr}</span>
+                </div>
+                <div class="info-row">
+                    <span><b>${labels.customer}:</b> ${op.customerName || (isAr ? 'عميل نقدي' : 'Cash Customer')}</span>
+                </div>
+                <div class="info-row">
+                    <span><b>${labels.status}:</b> ${paymentStatusText}</span>
+                </div>
+            </div>
+
+            <table class="receipt-table">
                 <thead>
                     <tr>
-                        <th style="width: 70%;">${labels.desc}</th>
-                        <th style="text-align: ${isAr ? 'left' : 'right'};">${labels.price}</th>
+                        <th style="width: 55%;">${labels.itemDescription}</th>
+                        <th style="text-align: center; width: 15%;">${labels.qty}</th>
+                        <th style="text-align: ${isAr ? 'left' : 'right'}; width: 30%;">${labels.total}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${items.map(item => `
-                        <tr>
-                            <td>
-                                ${item.partName}<br>
-                                <small>${labels.qty}: ${item.quantity || 1} x ${((item.price) / (item.quantity || 1)).toLocaleString()}</small>
-                            </td>
-                            <td style="text-align: ${isAr ? 'left' : 'right'};">${item.price.toLocaleString()}</td>
-                        </tr>
-                    `).join('')}
+                    ${items.map(item => {
+        const itemQty = parseFloat(item.quantity || 1);
+        const itemPrice = parseFloat(item.price || 0);
+        return `
+                            <tr>
+                                <td>
+                                    <span style="font-weight: 600;">${item.partName || ''}</span>
+                                    <span class="unit-price">${isAr ? 'سعر الوحدة' : 'Unit'}: ${(itemPrice / itemQty).toLocaleString()}</span>
+                                </td>
+                                <td style="text-align: center; font-weight: 700;">${itemQty}</td>
+                                <td style="text-align: ${isAr ? 'left' : 'right'}; font-weight: 700;">${itemPrice.toLocaleString()}</td>
+                            </tr>
+                        `;
+    }).join('')}
                 </tbody>
             </table>
-            
-            <div class="divider"></div>
-            
-            <div class="row row-bold">
-                <span>${labels.total}</span>
-                <span>${op.price.toLocaleString()}</span>
+
+            <div class="totals-section">
+                <div class="total-row">
+                    <span style="color:#666;">${labels.subtotal}</span>
+                    <span>${opTotal.toLocaleString()}</span>
+                </div>
+                <div class="total-row">
+                    <span style="color:#666;">${labels.paid}</span>
+                    <span>${opPaid.toLocaleString()}</span>
+                </div>
+                <div class="total-row grand-total">
+                    <span>${labels.grandTotal}</span>
+                    <span>${opTotal.toLocaleString()}</span>
+                </div>
             </div>
-            <div class="row">
-                <span>${labels.cash}</span>
-                <span>${op.paidAmount.toLocaleString()}</span>
+
+            <div class="balance-container">
+                <div class="balance-title">${labels.balance}</div>
+                <div class="balance-value">${balanceText}</div>
             </div>
-            <div class="row">
-                <span>${labels.remaining}</span>
-                <span>${debt.toLocaleString()}</span>
-            </div>
-            
-            <div class="stars">*********************</div>
-            <div style="font-size: 0.8rem; text-align: ${isAr ? 'right' : 'left'}; margin-top: 10px;">
-                <p>${labels.customer}: ${op.customerName}</p>
-                <p>${labels.date}: ${todayStr} - ${timeStr}</p>
-                <p>${labels.status}: ${paidText}</p>
-            </div>
-            <div class="stars">*********************</div>
-            
-            <div class="footer">
-                <p>${receipt.footer}</p>
-                <p>${labels.thanks}</p>
-                <div class="barcode"></div>
+
+            <div class="social-divider">✦ ✦ ✦ ✦ ✦ ✦ ✦</div>
+
+            <div class="footer-note">
+                <p style="font-weight:700; margin-bottom:5px;">${receipt.footer}</p>
+                <p>${labels.thankYou}</p>
+                <div style="margin-top:15px; height:25px; background:repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px); opacity:0.1;"></div>
             </div>
         </div>
     `;
+};
 
-    const printWindow = window.open('', '', 'width=400,height=700');
-    if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    }
+export const printReceipt = (op, settings) => {
+    const html = generateReceiptHtml(op, settings);
+    const win = window.open('', '', 'width=800,height=900');
+    win.document.write('<html><head><title>Receipt Viewer</title></head><body>' + html + '</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+        win.print();
+        win.close();
+    }, 500);
 };
 
 export const printCustomerDebts = (customer, operations, settings) => {
-    const isAr = settings.language === 'ar';
-    const lang = settings.language || 'ar';
-    const t_func = (key) => translations[lang][key] || key;
-
-    const receipt = settings.receipt || {
-        title: settings.receiptTitle || t_func('defaultReceiptTitle'),
-        address: settings.receiptAddress || t_func('defaultReceiptAddress'),
-        phone: settings.receiptPhone || '',
-        footer: settings.receiptFooter || t_func('defaultReceiptFooter')
-    };
-
-    if (!receipt.title) receipt.title = t_func('defaultReceiptTitle');
-    if (!receipt.address) receipt.address = t_func('defaultReceiptAddress');
-    if (!receipt.footer) receipt.footer = t_func('defaultReceiptFooter');
-    const todayStr = new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US');
+    const isAr = settings?.language === 'ar';
+    const lang = settings?.language || 'ar';
+    const t_func = (key) => translations[lang]?.[key] || key;
 
     const labels = {
-        title: isAr ? 'كشف حساب عميل' : 'Customer Statement',
-        customer: isAr ? 'العميل' : 'Customer',
-        phone: isAr ? 'تليفون' : 'Phone',
+        title: isAr ? 'كشف حساب عميل' : 'Customer Account Statement',
+        customer: isAr ? 'اسم العميل' : 'Customer Name',
+        phone: isAr ? 'رقم الهاتف' : 'Phone Number',
+        balance: isAr ? 'الرصيد المتبقي' : 'Remaining Balance',
         date: isAr ? 'التاريخ' : 'Date',
-        totalOps: isAr ? 'عدد العمليات' : 'Total Operations',
-        balance: isAr ? 'الرصيد الكلي المستحق' : 'Total Balance Due',
-        history: isAr ? 'سجل المشتريات' : 'Purchase History',
-        part: isAr ? 'القطعة' : 'Part',
-        qty: isAr ? 'كمية' : 'Qty',
-        price: isAr ? 'سعر' : 'Price',
-        paid: isAr ? 'مدفوع' : 'Paid',
-        remain: isAr ? 'متبقي' : 'Remain'
+        total: isAr ? 'الإجمالي' : 'Total',
+        paid: isAr ? 'المدفوع' : 'Paid',
+        notes: isAr ? 'ملاحظات' : 'Notes',
+        totalOps: isAr ? 'إجمالي العمليات' : 'Total Operations',
     };
 
-    const unpaidOps = operations.filter(op => op.paymentStatus !== 'paid');
-
     const html = `
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif, system-ui; }
-            body { background: white; padding: 20px; width: 150mm; margin: 0 auto; direction: ${isAr ? 'rtl' : 'ltr'}; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            .info-item { border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
-            .info-label { font-size: 0.8rem; opacity: 0.6; display: block; }
-            .info-value { font-weight: 700; font-size: 1.1rem; }
-            .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            .table th { background: #f0f0f0; border: 1px solid #000; padding: 8px; font-size: 0.9rem; }
-            .table td { border: 1px solid #ddd; padding: 8px; font-size: 0.85rem; }
-            .total-row { background: #f9f9f9; font-weight: 700; }
-        </style>
-        <div class="statement">
+        <html>
+        <head>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+                body { font-family: 'Cairo', sans-serif; direction: ${isAr ? 'rtl' : 'ltr'}; padding: 40px; color: #333; }
+                .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+                .header h1 { margin: 0; color: #000; font-size: 24px; }
+                .customer-info { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 30px; }
+                .info-item { flex: 1; min-width: 200px; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
+                .info-label { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
+                .info-value { font-size: 16px; font-weight: 700; color: #000; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #f8f9fa; padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6; font-size: 14px; }
+                td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; text-align: center; }
+                .total-row { background: #f8f9fa; font-weight: 700; }
+                .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+                .badge-danger { background: #fee2e2; color: #ef4444; }
+                .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; }
+                @media print {
+                    body { padding: 20px; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
             <div class="header">
-                <h1>${receipt.title}</h1>
-                <h2>${labels.title}</h2>
-                <p>${todayStr}</p>
+                <h1>${labels.title}</h1>
+                <p>${new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US')} - ${new Date().toLocaleTimeString(isAr ? 'ar-EG' : 'en-US')}</p>
             </div>
 
-            <div class="info-grid">
+            <div class="customer-info">
                 <div class="info-item">
                     <span class="info-label">${labels.customer}</span>
                     <span class="info-value">${customer.name}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">${labels.phone}</span>
-                    <span class="info-value">${customer.phone || '---'}</span>
+                    <span class="info-value">${customer.phone || '-'}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">${labels.totalOps}</span>
                     <span class="info-value">${operations.length}</span>
                 </div>
-                <div class="info-item" style="border-color: var(--danger-color); background: rgba(239, 68, 68, 0.05);">
-                    <span class="info-label" style="color: var(--danger-color)">${labels.balance}</span>
-                    <span class="info-value" style="color: var(--danger-color)">${(customer.balance || 0).toLocaleString()}</span>
+                 <div class="info-item" style="border-color: ${(customer.balance || 0) >= 0 ? '#ef4444' : '#22c55e'}; background: ${(customer.balance || 0) >= 0 ? 'rgba(239, 68, 68, 0.05)' : 'rgba(34, 197, 94, 0.05)'};">
+                    <span class="info-label" style="color: ${(customer.balance || 0) >= 0 ? '#ef4444' : '#22c55e'}">
+                        ${(customer.balance || 0) >= 0 ? t_func('onHim') : t_func('forHim')}
+                    </span>
+                    <span class="info-value" style="color: ${(customer.balance || 0) >= 0 ? '#ef4444' : '#22c55e'}">
+                        ${Math.abs(customer.balance || 0).toLocaleString()}
+                    </span>
                 </div>
             </div>
 
-            <h3>${labels.history}</h3>
-            <table class="table">
+            <table>
                 <thead>
                     <tr>
                         <th>${labels.date}</th>
-                        <th>${labels.part}</th>
-                        <th>${labels.qty}</th>
-                        <th>${labels.price}</th>
+                        <th style="width: 40%;">${labels.notes}</th>
+                        <th>${labels.total}</th>
                         <th>${labels.paid}</th>
-                        <th>${labels.remain}</th>
+                        <th>${labels.balance}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${operations.slice(-20).map(op => {
-        const items = op.items || [{ partName: op.partName, quantity: op.quantity, price: op.price }];
-        return items.map((item, idx) => `
+                    ${operations.map(op => {
+        const opTotal = parseFloat(op.price || 0);
+        const opPaid = parseFloat(op.paidAmount || 0);
+        const debt = opTotal - opPaid;
+        const items = op.items || [{ partName: op.partName, quantity: op.quantity }];
+        return `
                             <tr>
-                                ${idx === 0 ? `<td rowspan="${items.length}">${new Date(op.timestamp).toLocaleDateString()}</td>` : ''}
-                                <td>${item.partName}</td>
-                                <td style="text-align:center">${item.quantity}</td>
-                                <td style="text-align:center">${item.price.toLocaleString()}</td>
-                                ${idx === 0 ? `
-                                    <td rowspan="${items.length}" style="text-align:center">${op.paidAmount.toLocaleString()}</td>
-                                    <td rowspan="${items.length}" style="text-align:center">${(op.price - op.paidAmount).toLocaleString()}</td>
-                                ` : ''}
+                                <td>${new Date(op.timestamp).toLocaleDateString(isAr ? 'ar-EG' : 'en-US')}</td>
+                                <td style="text-align:${isAr ? 'right' : 'left'}">
+                                    ${items.map(i => `${i.partName} (${i.quantity})`).join(', ')}
+                                </td>
+                                <td>${opTotal.toLocaleString()}</td>
+                                <td>${opPaid.toLocaleString()}</td>
+                                <td>${debt.toLocaleString()}</td>
                             </tr>
-                        `).join('');
+                        `;
     }).join('')}
                     <tr class="total-row">
-                        <td colspan="5" style="text-align:${isAr ? 'left' : 'right'}; padding-left: 20px; padding-right: 20px;">${labels.balance}</td>
-                        <td style="text-align:center">${(customer.balance || 0).toLocaleString()}</td>
+                         <td colspan="4" style="text-align:${isAr ? 'left' : 'right'}; padding-left: 20px; padding-right: 20px;">
+                            ${(customer.balance || 0) >= 0 ? t_func('onHim') : t_func('forHim')}
+                        </td>
+                        <td style="text-align:center">${Math.abs(customer.balance || 0).toLocaleString()}</td>
                     </tr>
                 </tbody>
             </table>
 
-            <div style="margin-top: 50px; text-align: center; font-size: 0.8rem; opacity: 0.5;">
-                <p>${receipt.footer}</p>
+            <div class="footer">
+                <p>Gunter - ${labels.title}</p>
             </div>
-        </div>
+        </body>
+        </html>
     `;
 
-    const printWindow = window.open('', '', 'width=800,height=1000');
-    if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    }
-}
-
+    const win = window.open('', '', 'width=1000,height=900');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+        win.print();
+        win.close();
+    }, 500);
+};
 export const printEndSessionReport = (expected, actual, diff, settings) => {
-    const isAr = settings.language === 'ar';
-    const lang = settings.language || 'ar';
-    const t_func = (key) => translations[lang][key] || key;
-
-    const receipt = settings.receipt || {
-        title: settings.receiptTitle || t_func('defaultReceiptTitle'),
-        address: settings.receiptAddress || t_func('defaultReceiptAddress'),
-        phone: settings.receiptPhone || '',
-        footer: settings.receiptFooter || t_func('defaultReceiptFooter')
-    };
-
-    if (!receipt.title) receipt.title = t_func('defaultReceiptTitle');
-    if (!receipt.address) receipt.address = t_func('defaultReceiptAddress');
-    if (!receipt.footer) receipt.footer = t_func('defaultReceiptFooter');
-    const todayStr = new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US');
-    const timeStr = new Date().toLocaleTimeString(isAr ? 'ar-EG' : 'en-US');
-
-    const diffText = isAr
-        ? (diff === 0 ? 'مطابق' : (diff < 0 ? `عجز(${Math.abs(diff)})` : `زيادة(${diff})`))
-        : (diff === 0 ? 'Balanced' : (diff < 0 ? `Shortage(${Math.abs(diff)})` : `Surplus(${diff})`));
-
-    const labels = {
-        title: isAr ? 'تقرير إغلاق اليومية' : 'Daily Close Report',
-        expected: isAr ? 'المبيعات النقدية المتوقعة:' : 'Expected Cash Sales:',
-        actual: isAr ? 'المبلغ الفعلي بالخزنة:' : 'Actual Cash in Safe:',
-        diff: isAr ? 'الفرق (العجز/الزيادة):' : 'Difference (Shortage/Surplus):',
-        signature: isAr ? 'توقيع المدير المسؤول' : 'Manager Signature'
-    };
+    const isAr = settings?.language === 'ar';
+    const lang = settings?.language || 'ar';
+    const t = (key) => translations[lang]?.[key] || key;
 
     const html = `
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif, system-ui; }
-            body { background: white; padding: 20px; width: 100mm; margin: 0 auto; direction: ${isAr ? 'rtl' : 'ltr'}; }
-            .report { border: 2px solid #000; padding: 20px; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1rem; }
-            .row-bold { font-weight: 700; border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; }
-        </style>
-        <div class="report">
-            <div class="header">
-                <h2>${labels.title}</h2>
-                <h3>${receipt.title}</h3>
-                <p>${todayStr} - ${timeStr}</p>
+        <html>
+        <head>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap');
+                body { font-family: 'Cairo', sans-serif; direction: ${isAr ? 'rtl' : 'ltr'}; padding: 50px; color: #333; line-height: 1.6; }
+                .report-card { max-width: 600px; margin: 0 auto; border: 2px solid #eee; padding: 40px; border-radius: 12px; }
+                .header { text-align: center; margin-bottom: 40px; }
+                .header h1 { margin: 0; font-size: 28px; color: #000; font-weight: 800; }
+                .header p { color: #666; margin-top: 5px; }
+                .summary-item { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #eee; font-size: 18px; }
+                .summary-item b { color: #000; }
+                .diff-box { 
+                    margin-top: 30px; 
+                    padding: 20px; 
+                    border-radius: 8px; 
+                    text-align: center; 
+                    font-size: 22px; 
+                    font-weight: 800;
+                    background: ${diff === 0 ? '#f0fdf4' : (diff < 0 ? '#fef2f2' : '#f0fdf4')};
+                    color: ${diff === 0 ? '#166534' : (diff < 0 ? '#991b1b' : '#166534')};
+                    border: 2px solid ${diff === 0 ? '#166534' : (diff < 0 ? '#991b1b' : '#166534')};
+                }
+                .footer { margin-top: 50px; text-align: center; font-size: 14px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+                @media print { body { padding: 20px; } }
+            </style>
+        </head>
+        <body>
+            <div class="report-card">
+                <div class="header">
+                    <h1>${t('endSessionReport') || (isAr ? 'تقرير نهاية الوردية' : 'End Session Report')}</h1>
+                    <p>${new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US')} | ${new Date().toLocaleTimeString(isAr ? 'ar-EG' : 'en-US')}</p>
+                </div>
+
+                <div class="summary-item">
+                    <span>${t('expectedCash') || (isAr ? 'النقد المتوقع' : 'Expected Cash')}</span>
+                    <b>${expected.toLocaleString()}</b>
+                </div>
+                <div class="summary-item">
+                    <span>${t('actualCashInSafe') || (isAr ? 'النقد الفعلي' : 'Actual Cash')}</span>
+                    <b>${actual.toLocaleString()}</b>
+                </div>
+
+                <div class="diff-box">
+                    ${t('difference')}: ${diff === 0 ? (isAr ? 'مطابق' : 'Balanced') : diff.toLocaleString()}
+                    <div style="font-size: 14px; margin-top: 5px; font-weight: 400;">
+                        ${diff < 0 ? (isAr ? '(عجز)' : '(Shortage)') : (diff > 0 ? (isAr ? '(زيادة)' : '(Surplus)') : '')}
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <p>Gunter POS System - ${isAr ? 'نظام جنتر للمبيعات' : 'Sales Management'}</p>
+                    <p>${isAr ? 'تم استخراج التقرير بواسطة المشرف' : 'Report generated by Admin'}</p>
+                </div>
             </div>
-            <div class="row">
-                <span>${labels.expected}</span>
-                <span>${expected.toLocaleString()}</span>
-            </div>
-            <div class="row">
-                <span>${labels.actual}</span>
-                <span>${actual.toLocaleString()}</span>
-            </div>
-            <div class="row row-bold">
-                <span>${labels.diff}</span>
-                <span>${diffText}</span>
-            </div>
-            <div style="margin-top: 40px; text-align: center; border-top: 1px solid #000; padding-top: 10px;">
-                <p>${labels.signature}</p>
-                <div style="margin-top: 40px; border-bottom: 1px solid #000; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            </div>
-        </div>
+        </body>
+        </html>
     `;
 
-    const printWindow = window.open('', '', 'width=600,height=800');
-    if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    }
+    const win = window.open('', '', 'width=1000,height=900');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+        win.print();
+        win.close();
+    }, 500);
 };

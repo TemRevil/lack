@@ -7,7 +7,7 @@ import {
 import { StoreContext } from '../store/StoreContext';
 import Modal from '../components/Modal';
 import DropdownMenu from '../components/DropdownMenu';
-import { printReceipt } from '../utils/printing';
+import { printReceipt, generateReceiptHtml } from '../utils/printing';
 import CustomerForm from '../components/CustomerForm';
 import PartForm from '../components/PartForm';
 import CustomDatePicker from '../components/CustomDatePicker';
@@ -58,7 +58,11 @@ const CustomAutocomplete = ({ label, items, value, onSelect, onAddNew, placehold
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            if (onEnter) onEnter(inputValue);
+                            if (onEnter) {
+                                onEnter(inputValue);
+                                setInputValue('');
+                                setShowList(false);
+                            }
                         }
                     }}
                     onChange={(e) => {
@@ -76,7 +80,6 @@ const CustomAutocomplete = ({ label, items, value, onSelect, onAddNew, placehold
                     }}
                     onFocus={() => setShowList(true)}
                     placeholder={placeholder}
-                    required
                     disabled={disabled}
                 />
                 {Icon && <Icon size={16} />}
@@ -91,7 +94,7 @@ const CustomAutocomplete = ({ label, items, value, onSelect, onAddNew, placehold
                             key={item.id || item.name}
                             className="action-menu-item"
                             onClick={() => {
-                                setInputValue(item.name);
+                                setInputValue(''); // Immediately clear for next search
                                 onSelect(item);
                                 setShowList(false);
                             }}
@@ -159,6 +162,8 @@ const Operations = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDate, setSelectedDate] = useState(getLocalDateString());
     const [showModal, setShowModal] = useState(false);
+    const [showReceiptModal, setShowReceiptModal] = useState(false);
+    const [selectedOpForReceipt, setSelectedOpForReceipt] = useState(null);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingOpId, setEditingOpId] = useState(null);
     const [selectedOpId, setSelectedOpId] = useState(null);
@@ -383,6 +388,9 @@ const Operations = () => {
 
         // reset any currentItem inputs
         setCurrentItem({ partId: '', partName: '', quantity: '1', unitPrice: '0' });
+
+        // Use a small timeout to ensure state propagation before focusing or clearing internal autocomplete state if needed
+        // but typically the useEffect in CustomAutocomplete handles this.
     };
 
     const handleAddItemToList = () => {
@@ -551,10 +559,9 @@ const Operations = () => {
             opData.timestamp = selectedDateObj.toISOString();
 
             const newOp = addOperation(opData);
-            if (window.customConfirm) {
-                window.customConfirm(t('operationSuccess'), t('printInvoiceQuestion'), () => {
-                    printReceipt(newOp, settings);
-                });
+            if (newOp) {
+                setSelectedOpForReceipt(newOp);
+                setShowReceiptModal(true);
             }
         }
 
@@ -649,7 +656,11 @@ const Operations = () => {
                             filteredOps.map(op => (
                                 <tr
                                     key={op.id}
-                                    onClick={() => setSelectedOpId(op.id)}
+                                    onClick={() => {
+                                        setSelectedOpForReceipt(op);
+                                        setShowReceiptModal(true);
+                                        setSelectedOpId(op.id);
+                                    }}
                                     style={{
                                         cursor: 'pointer',
                                         background: selectedOpId === op.id ? 'rgba(59, 130, 246, 0.08)' : undefined,
@@ -706,10 +717,18 @@ const Operations = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td onClick={(e) => e.stopPropagation()}>
                                         <DropdownMenu options={[
                                             {
-                                                label: t('preview'),
+                                                label: t('viewReceipt'),
+                                                icon: <Package size={16} />,
+                                                onClick: () => {
+                                                    setSelectedOpForReceipt(op);
+                                                    setShowReceiptModal(true);
+                                                }
+                                            },
+                                            {
+                                                label: t('print'),
                                                 icon: <Printer size={16} />,
                                                 onClick: () => printReceipt(op, settings)
                                             },
@@ -972,6 +991,106 @@ const Operations = () => {
             <Modal show={showQuickPart} onClose={() => setShowQuickPart(false)} title={t('addPart')}>
                 <PartForm initialData={{ name: quickName }} onSubmit={handleQuickPartSubmit} onCancel={() => setShowQuickPart(false)} />
             </Modal>
+
+            {/* Receipt Preview Modal */}
+            {showReceiptModal && selectedOpForReceipt && (
+                <div className={`invoice-overlay ${showReceiptModal ? 'open' : ''}`} onClick={() => setShowReceiptModal(false)}>
+                    <div className="invoice-panel" onClick={e => e.stopPropagation()} style={{
+                        maxWidth: '450px',
+                        width: '95%',
+                        maxHeight: '90vh',
+                        height: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: '12px'
+                    }}>
+                        <div className="invoice-header" style={{
+                            flexShrink: 0,
+                            background: 'var(--bg-card)',
+                            borderBottom: '1px solid var(--border-color)',
+                            padding: '1.5rem 2rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderTopLeftRadius: '12px',
+                            borderTopRightRadius: '12px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    background: 'linear-gradient(135deg, var(--primary-color), var(--primary-dark))',
+                                    color: '#fff',
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)'
+                                }}>
+                                    <Printer size={22} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)' }}>{t('viewReceipt')}</h3>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('previewAndPrint') || 'Preview your transaction receipt'}</p>
+                                </div>
+                            </div>
+                            <button className="btn-close" onClick={() => setShowReceiptModal(false)} style={{
+                                background: 'var(--bg-body)',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                padding: '8px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                transition: 'all 0.2s'
+                            }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{
+                            flex: 1,
+                            overflowY: 'auto',
+                            padding: '30px',
+                            background: '#f1f5f9',
+                            display: 'flex',
+                            justifyContent: 'center'
+                        }}>
+                            <div
+                                style={{
+                                    background: '#fff',
+                                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                                    borderRadius: '8px',
+                                    padding: '25px',
+                                    width: '100%',
+                                    height: '100%', // Forced 100% as requested
+                                    border: '1px solid #e2e8f0',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: generateReceiptHtml(selectedOpForReceipt, settings) }}
+                            />
+                        </div>
+
+                        <div style={{
+                            padding: '15px 20px',
+                            borderTop: '1px solid var(--border-color)',
+                            display: 'flex',
+                            gap: '12px',
+                            justifyContent: 'flex-end',
+                            background: 'var(--bg-card)',
+                            flexShrink: 0
+                        }}>
+                            <button className="btn btn-secondary" onClick={() => setShowReceiptModal(false)}>
+                                {t('close')}
+                            </button>
+                            <button className="btn btn-primary" onClick={() => printReceipt(selectedOpForReceipt, settings)}>
+                                <Printer size={18} /> {t('print')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
