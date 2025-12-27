@@ -4,83 +4,21 @@ import { db, auth, storage } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { Database, validators, generateId } from '../utils/database';
 
 const StoreContext = createContext();
 
-const DB_KEY = 'mech_system_db_v3'; // Bump version for React migration
-
-const defaultData = {
-    operations: [],
-    parts: [],
-    customers: [],
-    notifications: [],
-    transactions: [],
-    activeSessionDate: null,
-    settings: {
-        theme: 'light',
-        loginPassword: '0',
-        adminPassword: '0',
-        receipt: {
-            title: 'اسم المركز / المحل',
-            address: 'العنوان بالتفصيل',
-            phone: '01000000000',
-            footer: 'شكراً لزيارتكم!'
-        },
-        license: null,
-        language: 'en',
-        security: {
-            showSessionBalance: true,
-            authOnDeleteOperation: true,
-            authOnDeleteCustomer: true,
-            authOnDeletePart: true,
-            authOnDeleteTransaction: true,
-            authOnAddTransaction: false,
-            authOnAddPart: false,
-            authOnUpdatePart: false,
-            authOnAddOperation: false
-        },
-        autoCheckUpdates: true
-    }
-};
+// Initialize database
+const database = new Database('mech_system_db_v3');
 
 export const StoreProvider = ({ children }) => {
-    const [data, setData] = useState(() => {
-        const stored = localStorage.getItem(DB_KEY);
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                const finalSettings = {
-                    ...defaultData.settings,
-                    ...(parsed.settings || {}),
-                    security: {
-                        ...defaultData.settings.security,
-                        ...(parsed.settings?.security || {})
-                    }
-                };
+    const [data, setData] = useState(database.data);
 
-                // Forced migration: if password is the old default '1' or '123456', move it to '0'
-                if (finalSettings.loginPassword === '1' || finalSettings.loginPassword === '123456') {
-                    finalSettings.loginPassword = '0';
-                }
-                if (finalSettings.adminPassword === '1' || finalSettings.adminPassword === '123456') {
-                    finalSettings.adminPassword = '0';
-                }
-
-                return {
-                    ...defaultData,
-                    ...parsed,
-                    activeSessionDate: parsed.activeSessionDate || null,
-                    settings: finalSettings
-                };
-            } catch (e) {
-                return defaultData;
-            }
-        }
-        return defaultData;
-    });
-
+    // Save to localStorage whenever data changes
     useEffect(() => {
-        localStorage.setItem(DB_KEY, JSON.stringify(data));
+        database.data = data;
+        database.save();
+
         // Also update theme on body
         if (data.settings.theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
@@ -117,8 +55,6 @@ export const StoreProvider = ({ children }) => {
         autoLogin();
     }, []);
 
-    const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
-
     const [isLicenseValid, setIsLicenseValid] = useState(false);
     const [licenseData, setLicenseData] = useState(null);
 
@@ -147,6 +83,14 @@ export const StoreProvider = ({ children }) => {
                 setIsLicenseValid(false);
                 return;
             }
+
+            // Offline mode: Allow entry if a license key exists
+            if (!navigator.onLine) {
+                console.log("Device is offline. Using local license key for access.");
+                setIsLicenseValid(true);
+                return;
+            }
+
             try {
                 // Check Firestore for the license key
                 const docRef = doc(db, "Activision Keys", data.settings.license.trim());
@@ -156,16 +100,31 @@ export const StoreProvider = ({ children }) => {
                     setIsLicenseValid(true);
                     setLicenseData(docSnap.data());
                 } else {
+                    // If online and key not found or not "Used", reject
                     setIsLicenseValid(false);
                     setLicenseData(null);
                 }
             } catch (error) {
                 console.error("License validation failed:", error);
-                setLicenseData(null);
+                // If network error during validation while thinking we are online, still allow access
+                if (error.message?.includes('network') || error.code === 'unavailable') {
+                    setIsLicenseValid(true);
+                } else {
+                    setIsLicenseValid(false);
+                    setLicenseData(null);
+                }
             }
         };
 
         validateCurrentLicense();
+
+        // Listen for connectivity changes
+        window.addEventListener('online', validateCurrentLicense);
+        window.addEventListener('offline', validateCurrentLicense);
+        return () => {
+            window.removeEventListener('online', validateCurrentLicense);
+            window.removeEventListener('offline', validateCurrentLicense);
+        };
     }, [data.settings.license]);
 
     const isLicensed = () => isLicenseValid;
@@ -213,6 +172,31 @@ export const StoreProvider = ({ children }) => {
         }
     };
 
+    // Automatic Session Management
+    useEffect(() => {
+        const checkSession = () => {
+            const today = new Date().toISOString().split('T')[0];
+            const activeDate = data.activeSessionDate;
+            const autoStart = data.settings?.autoStartNewDay;
+
+            if (autoStart && activeDate && activeDate !== today) {
+                setData(prev => ({
+                    ...prev,
+                    activeSessionDate: today
+                }));
+                // Optional: add a notification
+                setTimeout(() => addNotification(
+                    data.settings.language === 'ar' ? `بدأ يوم عمل جديد تلقائياً: ${today}` : `New business day started automatically: ${today}`,
+                    'success'
+                ), 100);
+            }
+        };
+
+        checkSession();
+        const interval = setInterval(checkSession, 60000); // Check every minute
+        return () => clearInterval(interval);
+    }, [data.activeSessionDate, data.settings?.autoStartNewDay, data.settings?.language]);
+
     const addNotification = (text, type = 'info') => {
         const note = {
             id: generateId(),
@@ -258,22 +242,35 @@ export const StoreProvider = ({ children }) => {
             ...op
         };
         setData(prev => {
-            const part = prev.parts.find(p => p.id === op.partId);
+            // Updated to handle multiple items
+            // Normalize items: ensure numeric quantity and resolve partId by name if missing
+            const items = (op.items || [{ partId: op.partId, partName: op.partName, quantity: op.quantity, price: op.price }]).map(it => {
+                const qty = parseInt(it.quantity) || 1;
+                const price = parseFloat(it.price) || 0;
+                let partId = it.partId;
+                if (!partId && it.partName) {
+                    const match = prev.parts.find(p => p.name && p.name.toLowerCase() === (it.partName || '').toLowerCase());
+                    if (match) partId = match.id;
+                }
+                return { ...it, quantity: qty, price, partId };
+            });
+
             const updatedParts = prev.parts.map(p => {
-                if (p.id === op.partId) {
+                const item = items.find(i => i.partId === p.id);
+                if (item) {
                     const currentQty = !isNaN(p.quantity) ? p.quantity : 0;
-                    const opQty = !isNaN(op.quantity) ? op.quantity : 1;
+                    const opQty = !isNaN(item.quantity) ? item.quantity : 1;
                     const newQty = currentQty - opQty;
                     if (newQty <= (p.threshold || 5)) {
-                        setTimeout(() => addNotification(`تنبيه: مخزون منخفض للقطعة "${p.name}" (المتبقى: ${newQty})`, 'danger'), 0);
+                        setTimeout(() => addNotification(`تنبيه: مخزون منخفض للقطعة "${p.name}" (المتبقي: ${newQty})`, 'danger'), 0);
                     }
                     return { ...p, quantity: newQty };
                 }
                 return p;
             });
 
-            // Update customer balance if needed (logic from original store.js)
-            const total = op.price;
+            // Update customer balance
+            const total = op.price; // total price for all items
             const paid = op.paidAmount || 0;
             const balanceChange = (op.paymentStatus === 'paid') ? 0 : (total - paid);
 
@@ -291,14 +288,101 @@ export const StoreProvider = ({ children }) => {
         return newOp;
     };
 
+    const updateOperation = (id, updatedOp) => {
+        setData(prev => {
+            const oldOp = prev.operations.find(o => o.id === id);
+            if (!oldOp) return prev;
+
+            // 1. Revert old parts changes
+            // Normalize old items and resolve missing partIds by name against prev.parts
+            const oldItemsRaw = oldOp.items || [{ partId: oldOp.partId, partName: oldOp.partName, quantity: oldOp.quantity }];
+            const oldItems = oldItemsRaw.map(it => {
+                const qty = parseInt(it.quantity) || 1;
+                let partId = it.partId;
+                if (!partId && it.partName) {
+                    const match = prev.parts.find(p => p.name && p.name.toLowerCase() === (it.partName || '').toLowerCase());
+                    if (match) partId = match.id;
+                }
+                return { ...it, quantity: qty, partId };
+            });
+
+            const revertedParts = prev.parts.map(p => {
+                const oldItem = oldItems.find(i => i.partId === p.id);
+                if (oldItem) {
+                    return { ...p, quantity: (p.quantity || 0) + (parseInt(oldItem.quantity) || 1) };
+                }
+                return p;
+            });
+
+            // 2. Revert old customer balance change
+            const oldTotal = oldOp.price;
+            const oldPaid = oldOp.paidAmount || 0;
+            const oldBalanceChange = (oldOp.paymentStatus === 'paid') ? 0 : (oldTotal - oldPaid);
+            const revertedCustomers = prev.customers.map(c =>
+                c.id === oldOp.customerId ? { ...c, balance: (c.balance || 0) - oldBalanceChange } : c
+            );
+
+            // 3. Apply new parts changes
+            // Normalize new items and resolve partIds by name against revertedParts (use prev.parts base)
+            const newItemsRaw = updatedOp.items || [{ partId: updatedOp.partId, partName: updatedOp.partName, quantity: updatedOp.quantity }];
+            const newItems = newItemsRaw.map(it => {
+                const qty = parseInt(it.quantity) || 1;
+                let partId = it.partId;
+                if (!partId && it.partName) {
+                    const match = revertedParts.find(p => p.name && p.name.toLowerCase() === (it.partName || '').toLowerCase());
+                    if (match) partId = match.id;
+                }
+                return { ...it, quantity: qty, partId };
+            });
+
+            const finalParts = revertedParts.map(p => {
+                const newItem = newItems.find(i => i.partId === p.id);
+                if (newItem) {
+                    return { ...p, quantity: p.quantity - (parseInt(newItem.quantity) || 1) };
+                }
+                return p;
+            });
+
+            // 4. Apply new customer balance change
+            const newTotal = updatedOp.price;
+            const newPaid = updatedOp.paidAmount || 0;
+            const newBalanceChange = (updatedOp.paymentStatus === 'paid') ? 0 : (newTotal - newPaid);
+            const finalCustomers = revertedCustomers.map(c =>
+                c.id === updatedOp.customerId ? { ...c, balance: (c.balance || 0) + newBalanceChange } : c
+            );
+
+            return {
+                ...prev,
+                operations: prev.operations.map(o => o.id === id ? { ...o, ...updatedOp } : o),
+                parts: finalParts,
+                customers: finalCustomers
+            };
+        });
+    };
+
     const deleteOperation = (id) => {
         setData(prev => {
             const op = prev.operations.find(o => o.id === id);
             if (!op) return prev;
 
-            const updatedParts = prev.parts.map(p =>
-                p.id === op.partId ? { ...p, quantity: p.quantity + (op.quantity || 1) } : p
-            );
+            const itemsRaw = op.items || [{ partId: op.partId, partName: op.partName, quantity: op.quantity }];
+            const items = itemsRaw.map(it => {
+                const qty = parseInt(it.quantity) || 1;
+                let partId = it.partId;
+                if (!partId && it.partName) {
+                    const match = prev.parts.find(p => p.name && p.name.toLowerCase() === (it.partName || '').toLowerCase());
+                    if (match) partId = match.id;
+                }
+                return { ...it, quantity: qty, partId };
+            });
+
+            const updatedParts = prev.parts.map(p => {
+                const item = items.find(i => i.partId === p.id);
+                if (item) {
+                    return { ...p, quantity: (p.quantity || 0) + (item.quantity || 1) };
+                }
+                return p;
+            });
 
             // Reverse balance change
             const total = op.price;
@@ -343,7 +427,17 @@ export const StoreProvider = ({ children }) => {
     };
 
     const addCustomer = (cust) => {
-        const newCust = { id: generateId(), balance: 0, ...cust };
+        const customerId = generateId();
+
+        // Ensure we ALWAYS have a valid ID
+        if (!customerId || customerId === '') {
+            const retryId = '_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+            const newCust = { id: retryId, balance: 0, ...cust };
+            setData(prev => ({ ...prev, customers: [...prev.customers, newCust] }));
+            return newCust;
+        }
+
+        const newCust = { id: customerId, balance: 0, ...cust };
         setData(prev => ({ ...prev, customers: [...prev.customers, newCust] }));
         return newCust;
     };
@@ -356,6 +450,10 @@ export const StoreProvider = ({ children }) => {
     };
 
     const recordDirectTransaction = (customerId, amount, type, note) => {
+        if (!customerId) {
+            console.warn('recordDirectTransaction called without customerId - aborting to prevent applying to all customers');
+            return;
+        }
         const tx = {
             id: generateId(),
             customerId,
@@ -630,6 +728,7 @@ export const StoreProvider = ({ children }) => {
         isLicensed,
         activateLicense,
         addOperation,
+        updateOperation,
         deleteOperation,
         addPart,
         updatePart,

@@ -2,9 +2,10 @@ import React, { useContext, useState } from 'react';
 import {
     Settings as SettingsIcon, Moon, Sun, Download,
     Upload, FileText, Lock, ShieldAlert, Globe, Eye, EyeOff, Key,
-    UserCheck, FileBarChart, Palette, Save, Printer, ShieldCheck, Phone
+    UserCheck, FileBarChart, Palette, Save, Printer, ShieldCheck, Phone, Plus, Trash2, History, RotateCcw
 } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
+import { printReceipt } from '../utils/printing';
 
 const LicenseSection = ({ settings, setData, t, licenseData }) => (
     <section className="settings-section-card" style={{ padding: '1.5rem', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
@@ -111,7 +112,6 @@ const LicenseSection = ({ settings, setData, t, licenseData }) => (
             </div>
 
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-                {/* WhatsApp contact button for license inquiries */}
                 <a
                     href={`https://wa.me/201001308280?text=${encodeURIComponent(t('whatsappMessage'))}`}
                     onClick={(e) => {
@@ -143,33 +143,17 @@ const Settings = () => {
 
     const [activeTab, setActiveTab] = useState('general');
     const [appVersion, setAppVersion] = useState('1.0.0');
+    const [mockReleases, setMockReleases] = useState([
+        { version: '1.10.23', date: '2025-12-25', current: true },
+        { version: '1.10.22', date: '2025-12-20' },
+        { version: '1.10.21', date: '2025-12-15' },
+    ]);
 
     React.useEffect(() => {
         if (window.electron?.getAppVersion) {
             window.electron.getAppVersion().then(v => setAppVersion(v));
         }
-
-        if (window.electron?.onUpdateMessage) {
-            window.electron.onUpdateMessage((data) => {
-                if (data.type === 'available') {
-                    const msg = t('updateAvailableNoDownloading').replace('%v', data.version);
-                    window.showToast?.(msg, 'info');
-                } else if (data.type === 'latest') {
-                    const msg = t('upToDate').replace('%v', data.version) +
-                        (settings.language === 'ar' ? `\n(نسختك: v${appVersion})` : `\n(Your version: v${appVersion})`);
-                    window.showToast?.(msg, 'success');
-                } else if (data.type === 'error') {
-                    window.showToast?.(`${t('error')}: ${data.message}`, 'danger');
-                }
-            });
-        }
-
-        if (window.electron?.onUpdateDownloaded) {
-            window.electron.onUpdateDownloaded(() => {
-                window.showToast?.(t('updateDownloaded'), 'success');
-            });
-        }
-    }, [t]);
+    }, []);
 
     const handleReceiptUpdate = (e) => {
         e.preventDefault();
@@ -245,6 +229,40 @@ const Settings = () => {
         }));
     };
 
+    const addExtraInput = () => {
+        if (settings.extraReceiptInputs?.length >= 3) return;
+        setData(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                extraReceiptInputs: [
+                    ...(prev.settings.extraReceiptInputs || []),
+                    { id: Date.now(), label: '' }
+                ]
+            }
+        }));
+    };
+
+    const updateExtraInput = (id, label) => {
+        setData(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                extraReceiptInputs: prev.settings.extraReceiptInputs.map(inp => inp.id === id ? { ...inp, label } : inp)
+            }
+        }));
+    };
+
+    const removeExtraInput = (id) => {
+        setData(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                extraReceiptInputs: prev.settings.extraReceiptInputs.filter(inp => inp.id !== id)
+            }
+        }));
+    };
+
     const tabs = [
         { id: 'general', label: t('appearanceAndLanguage'), icon: <Palette size={20} /> },
         { id: 'security', label: t('securityPermissions'), icon: <ShieldAlert size={20} /> },
@@ -268,20 +286,8 @@ const Settings = () => {
                                 </div>
                             </header>
                             <div className="settings-button-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' }}>
-                                <button
-                                    className={`btn ${settings.language === 'ar' ? 'btn-primary' : 'btn-secondary'}`}
-                                    onClick={() => setLanguage('ar')}
-                                    style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', whiteSpace: 'normal', textAlign: 'center', minWidth: 0 }}
-                                >
-                                    العربية
-                                </button>
-                                <button
-                                    className={`btn ${settings.language === 'en' ? 'btn-primary' : 'btn-secondary'}`}
-                                    onClick={() => setLanguage('en')}
-                                    style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', whiteSpace: 'normal', textAlign: 'center', minWidth: 0 }}
-                                >
-                                    English
-                                </button>
+                                <button className={`btn ${settings.language === 'ar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLanguage('ar')} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>العربية</button>
+                                <button className={`btn ${settings.language === 'en' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLanguage('en')} style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>English</button>
                             </div>
                         </section>
 
@@ -295,20 +301,40 @@ const Settings = () => {
                                 </div>
                             </header>
                             <div className="settings-item-row" onClick={toggleTheme} style={{ padding: '0.75rem', marginBottom: '0.5rem' }}>
-                                <div>
-                                    <span className="settings-item-label">{settings.language === 'ar' ? 'الوضع الليلي' : 'Dark Mode'}</span>
-                                </div>
-                                <div className={`toggle-switch ${settings.theme === 'dark' ? 'active' : ''}`}>
-                                    <div className="toggle-knob" />
-                                </div>
+                                <div><span className="settings-item-label">{t('darkMode')}</span></div>
+                                <div className={`toggle-switch ${settings.theme === 'dark' ? 'active' : ''}`}><div className="toggle-knob" /></div>
                             </div>
-                            <div className="settings-item-row" onClick={() => toggleSecurity('showSessionBalance')} style={{ padding: '0.75rem' }}>
+                            <div className="settings-item-row" onClick={() => toggleSecurity('showSessionBalance')} style={{ padding: '0.75rem', marginBottom: '0.5rem' }}>
+                                <div><span className="settings-item-label">{settings.language === 'ar' ? 'إظهار الرصيد اليومي' : 'Show Daily Balance'}</span></div>
+                                <div className={`toggle-switch ${settings?.security?.showSessionBalance ? 'active' : ''}`}><div className="toggle-knob" /></div>
+                            </div>
+                            <div className="settings-item-row" onClick={() => setData(prev => ({ ...prev, settings: { ...prev.settings, autoStartNewDay: !prev.settings.autoStartNewDay } }))} style={{ padding: '0.75rem' }}>
                                 <div>
-                                    <span className="settings-item-label">{settings.language === 'ar' ? 'إظهار الرصيد اليومي' : 'Show Daily Balance'}</span>
+                                    <span className="settings-item-label">{t('autoStartNewDay')}</span>
+                                    <span className="settings-item-subtext">{settings.language === 'ar' ? 'بدء يوم جديد تلقائياً عند تغيير وقت النظام' : 'Automatically start new day when system clock changes'}</span>
                                 </div>
-                                <div className={`toggle-switch ${settings?.security?.showSessionBalance ? 'active' : ''}`}>
-                                    <div className="toggle-knob" />
+                                <div className={`toggle-switch ${settings.autoStartNewDay ? 'active' : ''}`}><div className="toggle-knob" /></div>
+                            </div>
+                        </section>
+
+                        <section className="settings-section-card" style={{ padding: '1.5rem' }}>
+                            <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
+                                <div className="settings-section-icon appearance" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-color)', width: '40px', height: '40px' }}>
+                                    <Palette size={20} />
                                 </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('appTitle')}</h3>
+                                </div>
+                            </header>
+                            <div className="form-group">
+                                <label>{t('maxTitleLength')}</label>
+                                <input
+                                    type="text"
+                                    maxLength={20}
+                                    placeholder="Gunter"
+                                    value={settings.appTitle || ''}
+                                    onChange={(e) => setData(prev => ({ ...prev, settings: { ...prev.settings, appTitle: e.target.value } }))}
+                                />
                             </div>
                         </section>
 
@@ -328,73 +354,42 @@ const Settings = () => {
                                         settings: { ...prev.settings, autoCheckUpdates: !prev.settings.autoCheckUpdates }
                                     }));
                                 }} style={{ padding: '0.75rem', marginBottom: '1rem' }}>
-                                    <div>
-                                        <span className="settings-item-label">{t('autoCheckUpdates')}</span>
-                                    </div>
-                                    <div className={`toggle-switch ${settings.autoCheckUpdates ? 'active' : ''}`}>
-                                        <div className="toggle-knob" />
-                                    </div>
+                                    <div><span className="settings-item-label">{t('autoCheckUpdates')}</span></div>
+                                    <div className={`toggle-switch ${settings.autoCheckUpdates ? 'active' : ''}`}><div className="toggle-knob" /></div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '0.25rem' }}>
+                                    <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>
                                         {t('systemVersion')}: <strong style={{ color: 'var(--accent-color)' }}>v{appVersion}</strong>
                                     </div>
                                     <button
                                         className="btn btn-primary"
                                         style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                                        onClick={async () => {
-                                            window.showToast?.(settings.language === 'ar' ? 'جاري البحث عن تحديثات...' : 'Checking for updates...', 'info');
-                                            const result = await checkAppUpdates(true);
-
-                                            if (window.electron && result?.updateFound) {
-                                                // Using Electron auto-updater: prompt to download
-                                                if (window.confirm(settings.language === 'ar' ? 'يوجد تحديث جديد. هل تريد تنزيله الآن؟' : 'New update found. Download it now?')) {
-                                                    try {
-                                                        await window.electron.downloadUpdate();
-                                                        window.showToast?.(settings.language === 'ar' ? 'جاري تنزيل التحديث...' : 'Downloading update...', 'info');
-                                                    } catch (err) {
-                                                        window.showToast?.(settings.language === 'ar' ? 'فشل تنزيل التحديث' : 'Failed to download update', 'danger');
-                                                    }
-                                                }
-                                            } else if (result?.updateFound && result?.url) {
-                                                // Non-electron fallback: open URL
-                                                if (window.confirm(settings.language === 'ar' ? 'يوجد تحديث جديد. هل تريد البدء في التثبيت التلقائي؟' : 'New update found. Do you want to start the automatic installation?')) {
-                                                    if (window.electron?.executeUpdate) {
-                                                        window.electron.executeUpdate(result.url);
-                                                    } else {
-                                                        window.open(result.url, '_blank');
-                                                    }
-                                                }
-                                            }
-                                        }}
+                                        onClick={() => checkAppUpdates(true)}
                                     >
-                                        <Download size={18} />
-                                        {t('checkForUpdates')}
+                                        <Download size={18} /> {t('checkForUpdates')}
                                     </button>
 
-                                    {updateState && updateState.available && !updateState.downloading && !updateState.downloaded && (
-                                        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            <div style={{ fontWeight: 700 }}>{t('updateAvailableNoDownloading').replace('%v', updateState.availableVersion)}</div>
-                                            <button className="btn btn-primary" onClick={() => downloadUpdate()}>{t('downloadUpdate')}</button>
-                                            <button className="btn btn-ghost" onClick={() => clearUpdateState()}>{t('cancel')}</button>
+                                    <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            <History size={16} />
+                                            <h4 style={{ margin: 0 }}>{t('releases')}</h4>
                                         </div>
-                                    )}
-
-                                    {updateState && updateState.downloading && (
-                                        <div style={{ marginTop: '0.75rem', width: '100%' }}>
-                                            <div style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>{t('downloadingPercent').replace('%v', updateState.progress)}</div>
-                                            <div style={{ height: '10px', width: '100%', background: 'rgba(0,0,0,0.06)', borderRadius: '6px', overflow: 'hidden' }}>
-                                                <div style={{ height: '100%', width: `${updateState.progress}%`, background: 'linear-gradient(90deg,var(--accent-color), #60a5fa)' }} />
-                                            </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            {mockReleases.map(rel => (
+                                                <div key={rel.version} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-sm)' }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>v{rel.version} {rel.current && <span className="badge success" style={{ fontSize: '0.6rem' }}>Current</span>}</div>
+                                                        <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{rel.date}</div>
+                                                    </div>
+                                                    {!rel.current && (
+                                                        <button className="btn btn-secondary btn-sm" onClick={() => window.showToast?.('Rollback feature simulated', 'info')}>
+                                                            <RotateCcw size={14} /> {t('rollbackUpdate')}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    )}
-
-                                    {updateState && updateState.downloaded && (
-                                        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            <div style={{ fontWeight: 700 }}>{t('updateDownloaded')}</div>
-                                            <button className="btn btn-primary" onClick={() => installUpdate()}>{t('installNow')}</button>
-                                        </div>
-                                    )}
+                                    </div>
                                 </div>
                             </section>
                         )}
@@ -405,18 +400,17 @@ const Settings = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
                         <section className="settings-section-card" style={{ padding: '1.5rem' }}>
                             <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
-                                <div className="settings-section-icon security" style={{ width: '40px', height: '40px' }}>
-                                    <ShieldAlert size={20} />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('securityPermissions')}</h3>
-                                </div>
+                                <div className="settings-section-icon security" style={{ width: '40px', height: '40px' }}><ShieldAlert size={20} /></div>
+                                <div><h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('securityPermissions')}</h3></div>
                             </header>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                                 <div className="settings-item-subtext" style={{ fontWeight: 800, color: 'var(--accent-color)', marginBottom: '0.25rem', fontSize: '0.8rem' }}>{settings.language === 'ar' ? 'العمليات الأساسية' : 'Core Operations'}</div>
                                 <SecurityCheckbox label={t('deleteOperations')} settingKey="authOnDeleteOperation" />
                                 <SecurityCheckbox label={t('addOperations')} settingKey="authOnAddOperation" />
+                                <SecurityCheckbox label={t('authOnEditOperation')} settingKey="authOnEditOperation" />
+                                <SecurityCheckbox label={settings.language === 'ar' ? 'السماح بتعديل السعر' : 'Allow Price Edit'} settingKey="allowPriceEdit" subtext={settings.language === 'ar' ? 'السماح بتغيير السعر في نافذة البيع' : 'Allow changing item price in sales window'} />
+                                <SecurityCheckbox label={settings.language === 'ar' ? 'البيع في حالة عدم توفر مخزون' : 'Allow Negative Stock Sales'} settingKey="allowNegativeStock" subtext={settings.language === 'ar' ? 'إتمام العملية حتى لو الكمية غير متوفرة' : 'Complete sale even if stock is insufficient'} />
 
                                 <div className="settings-item-subtext" style={{ fontWeight: 800, color: 'var(--accent-color)', marginTop: '0.75rem', marginBottom: '0.25rem', fontSize: '0.8rem' }}>{settings.language === 'ar' ? 'إدارة المخزن' : 'Storage Management'}</div>
                                 <SecurityCheckbox label={t('deletePart')} settingKey="authOnDeletePart" />
@@ -432,14 +426,9 @@ const Settings = () => {
 
                         <section className="settings-section-card" style={{ padding: '1.5rem' }}>
                             <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
-                                <div className="settings-section-icon auth" style={{ width: '40px', height: '40px' }}>
-                                    <Key size={20} />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('passwords')}</h3>
-                                </div>
+                                <div className="settings-section-icon auth" style={{ width: '40px', height: '40px' }}><Key size={20} /></div>
+                                <div><h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('passwords')}</h3></div>
                             </header>
-
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div className="password-box" style={{ padding: '1rem' }}>
                                     <div className="password-box-header" style={{ marginBottom: '0.5rem' }}>
@@ -447,19 +436,18 @@ const Settings = () => {
                                         <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{t('current')}: <code style={{ color: 'var(--accent-color)' }}>{settings.loginPassword}</code></span>
                                     </div>
                                     <form onSubmit={(e) => handlePasswordUpdate('loginPassword', e)} style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <input type="text" name="password" placeholder={settings.language === 'ar' ? 'جديدة...' : 'New...'} required style={{ padding: '0.5rem 0.75rem', fontSize: '0.9rem' }} />
-                                        <button type="submit" className="btn btn-primary" style={{ borderRadius: 'var(--radius-md)', padding: '0.5rem 1rem' }}>{t('change')}</button>
+                                        <input type="text" name="password" placeholder="..." required style={{ padding: '0.5rem 0.75rem' }} />
+                                        <button type="submit" className="btn btn-primary">{t('change')}</button>
                                     </form>
                                 </div>
-
                                 <div className="password-box" style={{ padding: '1rem' }}>
                                     <div className="password-box-header" style={{ marginBottom: '0.5rem' }}>
                                         <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{t('adminPassword')}</span>
                                         <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{t('current')}: <code style={{ color: 'var(--accent-color)' }}>{settings.adminPassword}</code></span>
                                     </div>
                                     <form onSubmit={(e) => handlePasswordUpdate('adminPassword', e)} style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <input type="text" name="password" placeholder={settings.language === 'ar' ? 'جديدة...' : 'New...'} required style={{ padding: '0.5rem 0.75rem', fontSize: '0.9rem' }} />
-                                        <button type="submit" className="btn btn-primary" style={{ borderRadius: 'var(--radius-md)', padding: '0.5rem 1rem' }}>{t('change')}</button>
+                                        <input type="text" name="password" placeholder="..." required style={{ padding: '0.5rem 0.75rem' }} />
+                                        <button type="submit" className="btn btn-primary">{t('change')}</button>
                                     </form>
                                 </div>
                             </div>
@@ -470,58 +458,70 @@ const Settings = () => {
                 return (
                     <section className="settings-section-card" style={{ padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
                         <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
-                            <div className="settings-section-icon receipt" style={{ width: '40px', height: '40px' }}>
-                                <FileBarChart size={20} />
-                            </div>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('receiptSettings')}</h3>
-                            </div>
+                            <div className="settings-section-icon receipt" style={{ width: '40px', height: '40px' }}><FileBarChart size={20} /></div>
+                            <div><h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('receiptSettings')}</h3></div>
                         </header>
-
                         <form onSubmit={handleReceiptUpdate}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label style={{ fontSize: '0.85rem' }}>{t('businessName')}</label>
-                                    <input type="text" name="title" defaultValue={settings.receipt.title || ''} required style={{ padding: '0.5rem 0.75rem' }} />
+                                    <input type="text" name="title" defaultValue={settings.receipt?.title || settings.receiptTitle || ''} placeholder={t('defaultReceiptTitle')} />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label style={{ fontSize: '0.85rem' }}>{t('detailedAddress')}</label>
-                                    <input type="text" name="address" defaultValue={settings.receipt.address || ''} style={{ padding: '0.5rem 0.75rem' }} />
+                                    <input type="text" name="address" defaultValue={settings.receipt?.address || settings.receiptAddress || ''} placeholder={t('defaultReceiptAddress')} />
                                 </div>
                                 <div className="settings-button-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <div className="form-group" style={{ marginBottom: 0 }}>
-                                        <label style={{ fontSize: '0.85rem' }}>{t('phone')}</label>
-                                        <input type="text" name="phone" defaultValue={settings.receipt.phone || ''} style={{ padding: '0.5rem 0.75rem' }} />
-                                    </div>
-                                    <div className="form-group" style={{ marginBottom: 0 }}>
-                                        <label style={{ fontSize: '0.85rem' }}>{t('receiptFooter')}</label>
-                                        <input type="text" name="footer" defaultValue={settings.receipt.footer || ''} style={{ padding: '0.5rem 0.75rem' }} />
-                                    </div>
+                                    <div className="form-group" style={{ marginBottom: 0 }}><label>{t('phone')}</label><input type="text" name="phone" defaultValue={settings.receipt?.phone || settings.receiptPhone || ''} placeholder="0123456789" /></div>
+                                    <div className="form-group" style={{ marginBottom: 0 }}><label>{t('receiptFooter')}</label><input type="text" name="footer" defaultValue={settings.receipt?.footer || settings.receiptFooter || ''} placeholder={t('defaultReceiptFooter')} /></div>
+                                </div>
+                            </div>
+                            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h4 style={{ margin: 0 }}>{t('extraReceiptInputs')}</h4>
+                                    <button type="button" className="btn btn-secondary btn-sm" onClick={addExtraInput} disabled={settings.extraReceiptInputs?.length >= 3}>
+                                        <Plus size={14} /> {t('add')}
+                                    </button>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {(settings.extraReceiptInputs || []).map(inp => (
+                                        <div key={inp.id} style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                placeholder={t('receiptInputLabel')}
+                                                value={inp.label}
+                                                onChange={(e) => updateExtraInput(inp.id, e.target.value)}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <button type="button" className="btn btn-ghost" onClick={() => removeExtraInput(inp.id)} style={{ color: 'var(--danger-color)' }}><Trash2 size={18} /></button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ padding: '0.6rem 1.25rem', flex: 1 }}>
-                                    <Save size={16} /> {t('save')}
-                                </button>
+                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Save size={16} /> {t('save')}</button>
                                 <button
                                     type="button"
-                                    className="btn btn-secondary receipt-preview-btn"
-                                    style={{ padding: '0.6rem 1rem' }}
+                                    className="btn btn-secondary"
+                                    style={{ flex: 1 }}
                                     onClick={() => {
-                                        const mockOp = {
-                                            id: 'PREVIEW',
+                                        const mockReceipt = {
+                                            id: 'TEST-001',
                                             timestamp: new Date().toISOString(),
-                                            customerName: 'Customer Preview',
-                                            partName: 'Part Preview',
-                                            quantity: 2,
-                                            price: 1500,
-                                            paidAmount: 1000,
-                                            paymentStatus: 'partial'
+                                            customerName: settings.language === 'ar' ? 'عميل تجريبي' : 'Test Customer',
+                                            items: [
+                                                { partName: settings.language === 'ar' ? 'قطعة غيار رقم 1' : 'Spare Part #1', quantity: 2, price: 500 },
+                                                { partName: settings.language === 'ar' ? 'خدمة صيانة' : 'Maintenance Service', quantity: 1, price: 300 }
+                                            ],
+                                            price: 800,
+                                            paidAmount: 500,
+                                            paymentStatus: 'partial',
+                                            extraInputs: (settings.extraReceiptInputs || []).map(inp => ({ label: inp.label, value: settings.language === 'ar' ? 'نموذج' : 'Sample' }))
                                         };
-                                        import('../utils/printing').then(m => m.printReceipt(mockOp, settings));
+                                        printReceipt(mockReceipt, settings);
                                     }}
                                 >
-                                    <Printer size={16} /> {t('preview')}
+                                    <Printer size={16} /> {t('testPrint')}
                                 </button>
                             </div>
                         </form>
@@ -531,16 +531,11 @@ const Settings = () => {
                 return (
                     <section className="settings-section-card" style={{ padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
                         <header className="settings-section-header" style={{ marginBottom: '1.5rem', paddingBottom: '1rem' }}>
-                            <div className="settings-section-icon appearance" style={{ width: '40px', height: '40px' }}>
-                                <Save size={20} />
-                            </div>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('backupAndDisplay')}</h3>
-                            </div>
+                            <div className="settings-section-icon appearance" style={{ width: '40px', height: '40px' }}><Save size={20} /></div>
+                            <div><h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('backupAndDisplay')}</h3></div>
                         </header>
-
                         <div className="settings-button-grid" style={{ marginTop: '0.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <button className="btn btn-secondary shadow-sm" style={{ padding: '1.25rem', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', height: '120px' }} onClick={() => {
+                            <button className="btn btn-secondary shadow-sm" style={{ padding: '1.25rem', borderRadius: 'var(--radius-lg)', height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }} onClick={() => {
                                 const now = new Date();
                                 const blob = new Blob([exportData()], { type: 'text/plain' });
                                 const url = URL.createObjectURL(blob);
@@ -548,13 +543,11 @@ const Settings = () => {
                                 a.href = url;
                                 a.download = `backup_${now.toISOString().split('T')[0]}.txt`;
                                 a.click();
-                                window.showToast?.(settings.language === 'ar' ? 'جاري تصدير البيانات...' : 'Exporting data...', 'success');
                             }}>
                                 <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.75rem', borderRadius: '50%', color: 'var(--accent-color)' }}><Download size={24} /></div>
                                 <span style={{ fontWeight: 700 }}>{t('exportData')}</span>
                             </button>
-
-                            <label className="btn btn-secondary shadow-sm" style={{ padding: '1.25rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', height: '120px' }}>
+                            <label className="btn btn-secondary shadow-sm" style={{ padding: '1.25rem', borderRadius: 'var(--radius-lg)', height: '120px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
                                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '0.75rem', borderRadius: '50%', color: 'var(--success-color)' }}><Upload size={24} /></div>
                                 <span style={{ fontWeight: 700 }}>{t('importData')}</span>
                                 <input type="file" hidden onChange={onImport} />
@@ -569,121 +562,57 @@ const Settings = () => {
         }
     };
 
-    // Scroll active tab into view
-    React.useEffect(() => {
-        const activeBtn = document.querySelector(`.settings-tab-btn-${activeTab}`);
-        if (activeBtn) {
-            activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        }
-    }, [activeTab]);
-
-    const handleTabWheel = (e) => {
-        // Allow horizontal scroll if it's a trackpad (deltaX present) logic?
-        // But user asked "scroll between settings sections", implying switching.
-
-        // Simple throttle/threshold
-        if (Math.abs(e.deltaY) < 10 && Math.abs(e.deltaX) < 10) return;
-
-        const dir = (e.deltaY > 0 || e.deltaX > 0) ? 1 : -1;
-        const currentIndex = tabs.findIndex(t => t.id === activeTab);
-        const nextIndex = Math.max(0, Math.min(tabs.length - 1, currentIndex + dir));
-
-        if (nextIndex !== currentIndex) {
-            setActiveTab(tabs[nextIndex].id);
-        }
-    };
-
     return (
         <div className="view-container">
             <header className="view-header">
                 <div className="view-title">
-                    <div className="view-icon">
-                        <SettingsIcon size={24} />
-                    </div>
-                    <div>
-                        <h1>{t('settings')}</h1>
-                        <p>{settings.language === 'ar' ? 'إدارة إعدادات النظام' : 'Manage system settings'}</p>
-                    </div>
+                    <div className="view-icon"><SettingsIcon size={24} /></div>
+                    <div><h1>{t('settings')}</h1><p>{settings.language === 'ar' ? 'إدارة إعدادات النظام' : 'Manage system settings'}</p></div>
                 </div>
             </header>
-
-            <div className="settings-view" style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1.5rem',
-                height: 'calc(100% - 80px)',
-                overflow: 'hidden',
-                padding: '1rem'
-            }}>
-                {/* Horizontal Tabs Navigation */}
-                <div
-                    className="settings-tabs-container"
-                    onWheel={handleTabWheel}
-                    style={{
-                        display: 'flex',
-                        gap: '0.5rem',
-                        overflowX: 'auto',
-                        padding: '0.5rem',
-                        flexShrink: 0,
-                        background: 'var(--bg-input)',
-                        borderRadius: 'var(--radius-pill)',
-                        margin: '0 auto',
-                        width: 'fit-content',
-                        maxWidth: '100%',
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                        border: '1px solid var(--border-color)',
-                    }}>
-                    <style>{`
-                        .settings-tabs-container::-webkit-scrollbar { display: none; }
-                        .settings-tab-btn {
-                            transition: var(--transition);
-                            position: relative;
-                        }
-                        .settings-tab-btn.active {
-                            background: var(--bg-surface) !important;
-                            color: var(--accent-color) !important;
-                            box-shadow: var(--shadow-sm);
-                        }
-                        .settings-tab-btn:hover:not(.active) {
-                            background: rgba(0,0,0,0.05);
-                        }
-                        [data-theme="dark"] .settings-tab-btn:hover:not(.active) {
-                            background: rgba(255,255,255,0.05);
-                        }
-                    `}</style>
+            <div className="settings-view" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: 'calc(100% - 80px)', overflow: 'hidden', padding: '1rem' }}>
+                <nav className="settings-tabs-container" style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    overflowX: 'auto',
+                    padding: '0.75rem 1rem',
+                    background: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-xl)',
+                    margin: '0 auto',
+                    width: 'fit-content',
+                    maxWidth: '100%',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: 'var(--shadow-sm)'
+                }}>
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
-                            className={`btn settings-tab-btn settings-tab-btn-${tab.id} ${activeTab === tab.id ? 'active' : ''}`}
+                            className={`btn settings-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
                             onClick={() => setActiveTab(tab.id)}
                             style={{
                                 whiteSpace: 'nowrap',
                                 gap: '0.6rem',
-                                padding: '0.6rem 1.5rem',
-                                fontSize: '0.9rem',
-                                fontWeight: 700,
-                                borderRadius: 'var(--radius-pill)',
-                                flexShrink: 0,
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--text-secondary)',
+                                padding: '0.75rem 1.75rem',
+                                borderRadius: 'var(--radius-lg)',
+                                border: activeTab === tab.id ? '1px solid var(--accent-color)' : '1px solid transparent',
+                                background: activeTab === tab.id ? 'var(--accent-color)' : 'transparent',
+                                color: activeTab === tab.id ? 'white' : 'var(--text-secondary)',
+                                fontWeight: activeTab === tab.id ? 700 : 600,
+                                transition: 'all 0.2s ease',
+                                boxShadow: activeTab === tab.id ? 'var(--shadow-md)' : 'none'
                             }}
                         >
-                            {React.cloneElement(tab.icon, { size: 18, strokeWidth: activeTab === tab.id ? 2.5 : 2 })}
+                            {React.cloneElement(tab.icon, { size: 18 })}
                             <span>{tab.label}</span>
                         </button>
                     ))}
-                </div>
-
-                {/* Main Content Area */}
-                <main className="settings-content" style={{ flex: 1, overflowY: 'auto', padding: '1rem', width: '100%' }}>
+                </nav>
+                <main className="settings-content" style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
                     {renderContent()}
                 </main>
-
-
             </div>
         </div>
     );
 };
+
 export default Settings;

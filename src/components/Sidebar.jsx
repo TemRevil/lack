@@ -18,7 +18,7 @@ const Sidebar = ({ currentTab, setTab, onLogout, notificationsCount, isMobileSho
         <aside className={`sidebar ${isMobileShow ? 'show' : ''}`}>
             <div className="brand">
                 <i className="fa-solid fa-gears" style={{ fontSize: 'var(--fs-h2)' }}></i>
-                <h2>{t('appName')}</h2>
+                <h2>{settings?.appTitle ? settings.appTitle.substring(0, 20) : t('appName')}</h2>
             </div>
 
             {showBalance && (

@@ -2,12 +2,13 @@ import React, { useState, useContext } from 'react';
 import {
     Users, Search, Plus, Phone, MapPin,
     UserPlus, Clock, Printer, Trash2, PenTool, Coins, History,
-    CheckCircle2, AlertCircle
+    CheckCircle2, AlertCircle, X
 } from 'lucide-react';
 import { StoreContext } from '../store/StoreContext';
 import Modal from '../components/Modal';
 import DropdownMenu from '../components/DropdownMenu';
 import CustomerForm from '../components/CustomerForm';
+import { printCustomerDebts } from '../utils/printing';
 
 const Customers = () => {
     const {
@@ -27,9 +28,8 @@ const Customers = () => {
 
     const filteredCustomers = customers.filter(customer =>
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone.includes(searchTerm)
+        (customer.phone && customer.phone.includes(searchTerm))
     );
-
 
     const handleFormSubmit = (data) => {
         if (isEditMode) {
@@ -39,10 +39,10 @@ const Customers = () => {
                 address: data.address,
                 balance: data.balance
             });
-            window.showToast?.('تم تحديث بيانات العميل', 'success');
+            window.showToast?.(t('updateCustomer'), 'success');
         } else {
             addCustomer(data);
-            window.showToast?.('تم إضافة العميل بنجاح', 'success');
+            window.showToast?.(t('customerAddedSuccess'), 'success');
         }
         setShowFormModal(false);
     };
@@ -77,7 +77,7 @@ const Customers = () => {
         const performAdd = () => {
             const msg = directTx.type === 'payment' ? 'تسديد دين / دفع مبلغ' : 'زيادة مديونية / سحب مبلغ';
             recordDirectTransaction(selectedCustomer.id, directTx.amount, directTx.type, directTx.note || msg);
-            window.showToast?.('تم تسجيل العملية بنجاح', 'success');
+            window.showToast?.(t('addTransaction'), 'success');
             setDirectTx({ amount: '', type: 'payment', note: '' });
         };
 
@@ -88,17 +88,21 @@ const Customers = () => {
         }
     };
 
+
+
     const combinedHistory = selectedCustomer ? [
-        ...operations.filter(op => op.customerId === selectedCustomer.id).map(op => ({
+        ...operations.filter(op => op.customerId === selectedCustomer.id).map((op, idx) => ({
             id: op.id,
+            key: `op-${op.id || `temp-${idx}-${Date.now()}`}`, // Fallback for empty IDs
             timestamp: op.timestamp,
-            label: `${op.partName} x ${op.quantity}`,
+            label: op.items ? op.items.map(i => `${i.partName} (${i.quantity})`).join(', ') : `${op.partName} x ${op.quantity}`,
             amount: op.price,
             paid: op.paidAmount,
             source: 'operation'
         })),
-        ...transactions.filter(tx => tx.customerId === selectedCustomer.id).map(tx => ({
+        ...transactions.filter(tx => tx.customerId === selectedCustomer.id).map((tx, idx) => ({
             id: tx.id,
+            key: `tx-${tx.id || `temp-${idx}-${Date.now()}`}`, // Fallback for empty IDs
             timestamp: tx.timestamp,
             label: tx.note,
             amount: tx.type === 'debt' ? tx.amount : 0,
@@ -106,6 +110,11 @@ const Customers = () => {
             source: 'transaction'
         }))
     ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) : [];
+
+    const handlePrintDebts = (customer) => {
+        const custOps = operations.filter(op => op.customerId === customer.id);
+        printCustomerDebts(customer, custOps, settings);
+    };
 
     return (
         <div className="view-container">
@@ -148,8 +157,8 @@ const Customers = () => {
                     </thead>
                     <tbody>
                         {filteredCustomers.length > 0 ? (
-                            filteredCustomers.map(customer => (
-                                <tr key={customer.id}>
+                            filteredCustomers.map((customer, idx) => (
+                                <tr key={customer.id || `cust-${idx}-${customer.name || 'unknown'}`}>
                                     <td
                                         className="font-medium cursor-pointer hover-underline text-accent"
                                         onClick={() => openHistory(customer)}
@@ -190,6 +199,11 @@ const Customers = () => {
                                                 onClick: () => openHistory(customer)
                                             },
                                             {
+                                                label: t('printDebts'),
+                                                icon: <Printer size={16} />,
+                                                onClick: () => handlePrintDebts(customer)
+                                            },
+                                            {
                                                 label: t('edit'),
                                                 icon: <PenTool size={16} />,
                                                 onClick: () => openEdit(customer)
@@ -228,38 +242,35 @@ const Customers = () => {
                 </table>
             </div>
 
-            {/* Customer Form Modal */}
-            <Modal
-                show={showFormModal}
-                onClose={() => setShowFormModal(false)}
-                title={isEditMode ? t('updateCustomer') : t('addCustomer')}
-            >
-                <CustomerForm
-                    initialData={customerForm}
-                    isEditMode={isEditMode}
-                    onSubmit={handleFormSubmit}
-                    onCancel={() => setShowFormModal(false)}
-                />
+            <Modal show={showFormModal} onClose={() => setShowFormModal(false)} title={isEditMode ? t('updateCustomer') : t('addCustomer')}>
+                <CustomerForm initialData={customerForm} isEditMode={isEditMode} onSubmit={handleFormSubmit} onCancel={() => setShowFormModal(false)} />
             </Modal>
 
-            {/* History Modal */}
             <Modal
+                key={selectedCustomer?.id || 'no-customer'}
                 show={showHistoryModal}
-                onClose={() => setShowHistoryModal(false)}
+                onClose={() => {
+                    setShowHistoryModal(false);
+                    setSelectedCustomer(null);
+                    setDirectTx({ amount: '', type: 'payment', note: '' });
+                }}
                 title={`${t('history')}: ${selectedCustomer?.name}`}
                 style={{ maxWidth: '800px' }}
             >
                 {(() => {
-                    const currentCust = customers.find(c => c.id === selectedCustomer?.id);
+                    const currentCust = customers.find(c => c.id === selectedCustomer?.id) || selectedCustomer;
                     const bal = currentCust?.balance || 0;
                     return (
-                        <div className="summary-box" style={{ background: 'var(--bg-input)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', border: '1px solid var(--border-color)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="summary-box" style={{ background: 'var(--bg-input)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
                                 <span style={{ fontWeight: 600 }}>{settings.language === 'ar' ? 'إجمالي المديونية الحالية:' : 'Total Current Debt:'}</span>
-                                <span style={{ fontSize: 'var(--fs-h2)', fontWeight: 800, color: bal > 0 ? 'var(--danger-color)' : 'var(--success-color)' }}>
+                                <span style={{ fontSize: 'var(--fs-h2)', fontWeight: 800, color: bal > 0 ? 'var(--danger-color)' : 'var(--success-color)', marginInlineStart: '10px' }}>
                                     {Math.abs(bal).toLocaleString()}
                                 </span>
                             </div>
+                            <button className="btn btn-secondary" onClick={() => handlePrintDebts(currentCust)}>
+                                <Printer size={16} /> {t('printDebts')}
+                            </button>
                         </div>
                     );
                 })()}
@@ -276,29 +287,24 @@ const Customers = () => {
                         </thead>
                         <tbody>
                             {combinedHistory.length > 0 ? combinedHistory.map(item => (
-                                <tr key={item.id}>
+                                <tr key={item.key}>
                                     <td style={{ fontSize: 'var(--fs-xs)', opacity: 0.7 }}>{new Date(item.timestamp).toLocaleDateString()}</td>
                                     <td className="font-medium" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         {item.label}
                                         {item.source === 'transaction' && (
-                                            <button
-                                                className="btn-icon text-danger"
-                                                style={{ padding: '4px' }}
-                                                onClick={() => {
-                                                    const performDelete = () => {
-                                                        window.customConfirm?.(t('delete'), `${t('delete')} ${t('addTransaction')}?`, () => {
-                                                            deleteTransaction(item.id);
-                                                            window.showToast?.(t('delete'), 'success');
-                                                        });
-                                                    };
-
-                                                    if (settings?.security?.authOnDeleteTransaction) {
-                                                        window.requestAdminAuth?.(performDelete, settings.language === 'ar' ? 'تأكيد الهوية لحذف سجل الدفع / الدين' : 'Identity confirmation to delete payment/debt record');
-                                                    } else {
-                                                        performDelete();
-                                                    }
-                                                }}
-                                            >
+                                            <button className="btn-icon text-danger" style={{ padding: '4px' }} onClick={() => {
+                                                const performDelete = () => {
+                                                    window.customConfirm?.(t('delete'), `${t('delete')} ${t('addTransaction')}?`, () => {
+                                                        deleteTransaction(item.id);
+                                                        window.showToast?.(t('delete'), 'success');
+                                                    });
+                                                };
+                                                if (settings?.security?.authOnDeleteTransaction) {
+                                                    window.requestAdminAuth?.(performDelete, settings.language === 'ar' ? 'تأكيد الهوية لحذف سجل الدفع / الدين' : 'Identity confirmation to delete payment/debt record');
+                                                } else {
+                                                    performDelete();
+                                                }
+                                            }}>
                                                 <Trash2 size={14} />
                                             </button>
                                         )}
@@ -307,9 +313,7 @@ const Customers = () => {
                                     <td style={{ color: item.paid > 0 ? 'var(--success-color)' : 'inherit', textAlign: 'center' }} className="font-medium">{item.paid > 0 ? item.paid.toLocaleString() : '-'}</td>
                                 </tr>
                             )) : (
-                                <tr>
-                                    <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>{t('noOperations')}</td>
-                                </tr>
+                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>{t('noOperations')}</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -321,43 +325,11 @@ const Customers = () => {
                     </h3>
                     <form onSubmit={handleDirectTxSubmit}>
                         <div className="settings-button-grid" style={{ marginBottom: '1rem' }}>
-                            <div className="form-group">
-                                <label style={{ fontSize: 'var(--fs-sm)' }}>{t('amount')}</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={directTx.amount}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/[^0-9]/g, '');
-                                        setDirectTx({ ...directTx, amount: val });
-                                    }}
-                                    placeholder="0"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label style={{ fontSize: 'var(--fs-sm)' }}>{t('status')}</label>
-                                <select
-                                    value={directTx.type}
-                                    onChange={(e) => setDirectTx({ ...directTx, type: e.target.value })}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <option value="payment">{t('payment')}</option>
-                                    <option value="debt">{t('debt')}</option>
-                                </select>
-                            </div>
+                            <div className="form-group"><label style={{ fontSize: 'var(--fs-sm)' }}>{t('amount')}</label><input type="text" required value={directTx.amount} onChange={(e) => setDirectTx({ ...directTx, amount: e.target.value.replace(/[^0-9]/g, '') })} placeholder="0" /></div>
+                            <div className="form-group"><label style={{ fontSize: 'var(--fs-sm)' }}>{t('status')}</label><select value={directTx.type} onChange={(e) => setDirectTx({ ...directTx, type: e.target.value })} style={{ cursor: 'pointer' }}><option value="payment">{t('payment')}</option><option value="debt">{t('debt')}</option></select></div>
                         </div>
-                        <div className="form-group">
-                            <label style={{ fontSize: 'var(--fs-sm)' }}>{t('notes')}</label>
-                            <input
-                                type="text"
-                                value={directTx.note}
-                                onChange={(e) => setDirectTx({ ...directTx, note: e.target.value })}
-                                placeholder={t('notes')}
-                            />
-                        </div>
-                        <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem', borderRadius: 'var(--radius-md)' }}>
-                            {t('save')}
-                        </button>
+                        <div className="form-group"><label style={{ fontSize: 'var(--fs-sm)' }}>{t('notes')}</label><input type="text" value={directTx.note} onChange={(e) => setDirectTx({ ...directTx, note: e.target.value })} placeholder={t('notes')} /></div>
+                        <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem', borderRadius: 'var(--radius-md)' }}>{t('save')}</button>
                     </form>
                 </div>
             </Modal>

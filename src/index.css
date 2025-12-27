@@ -10,6 +10,7 @@
 
     --bg-input: #f1f5f9;
     --bg-hover: #e2e8f0;
+    --bg-elevated: rgba(255, 255, 255, 0.72);
 
     --primary-color: #0f172a;
     /* Slate 900 */
@@ -76,6 +77,7 @@ html {
 
     --bg-input: #1c1c1f;
     --bg-hover: #27272a;
+    --bg-elevated: rgba(255, 255, 255, 0.03);
 
     --primary-color: #ffffff;
     --primary-text-on-btn: #000000;
@@ -125,6 +127,439 @@ body {
 .modal {
     animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* =========================================
+   INVOICE / OPERATIONS PANEL (custom styles)
+   ========================================= */
+
+.invoice-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9990;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.invoice-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Centered POS Modal */
+.invoice-panel {
+    position: relative;
+    width: 95vw;
+    /* Explicit width to prevent collapse */
+    height: 90vh;
+    max-width: 1400px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 10000;
+    overflow: hidden;
+    padding: 0;
+    border-radius: 20px;
+    transform: scale(0.95);
+}
+
+.invoice-overlay.open .invoice-panel {
+    transform: scale(1);
+}
+
+.pos-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    /* Base side-by-side */
+    height: 100%;
+    background: var(--bg-body);
+    transition: grid-template-columns 0.4s ease;
+}
+
+/* Tablet Transition: If the panel is medium, still keep side-by-side but thinner sidebar */
+.invoice-panel[data-panel-size="medium"] .pos-layout {
+    grid-template-columns: 1fr 340px;
+}
+
+/* Left Main Area */
+.pos-main {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+    background: var(--bg-body);
+}
+
+.pos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pos-header h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 0.25rem;
+}
+
+.pos-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.pos-search-section .form-group {
+    margin-bottom: 0;
+}
+
+.pos-search-section input {
+    height: 56px;
+    font-size: 1.1rem;
+    padding-left: 1.2rem;
+    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.pos-search-section input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Items Table Container */
+.pos-items-container {
+    flex: 1;
+    background: var(--bg-surface);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Allow horizontal scrolling for wide tables on small screens */
+.pos-items-container {
+    overflow-x: auto;
+}
+
+.pos-table {
+    min-width: 720px;
+}
+
+.pos-table td,
+.pos-table th {
+    word-break: break-word;
+    white-space: nowrap;
+}
+
+.pos-item-name {
+    word-break: break-word;
+}
+
+.pos-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pos-table th {
+    background: rgba(0, 0, 0, 0.02);
+    padding: 1rem;
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border-color);
+}
+
+[lang="ar"] .pos-table th {
+    text-align: right;
+}
+
+.pos-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.pos-item-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.pos-item-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.pos-input {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--bg-input);
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.pos-input.center {
+    text-align: center;
+}
+
+.pos-input:focus {
+    background: var(--bg-surface);
+    border-color: var(--accent-color);
+}
+
+.pos-btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.pos-btn-icon:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.pos-btn-icon.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+}
+
+.pos-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    gap: 1rem;
+    opacity: 0.6;
+    min-height: 200px;
+}
+
+/* Right Sidebar */
+.pos-sidebar {
+    background: var(--bg-glass);
+    /* Slightly distinct bg */
+    border-left: 1px solid var(--border-color);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    backdrop-filter: blur(20px);
+}
+
+[lang="ar"] .pos-sidebar {
+    border-left: none;
+    border-right: 1px solid var(--border-color);
+}
+
+.pos-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.card-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+
+
+/* Payment Section */
+.pos-totals {
+    margin-bottom: 1.5rem;
+    text-align: center;
+    padding: 1rem;
+    background: var(--bg-body);
+    border-radius: 12px;
+}
+
+.total-row.main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.total-row.main span:first-child {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.total-row.main span:last-child {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.total-row.main small {
+    font-size: 1rem;
+    opacity: 0.6;
+    margin-left: 4px;
+}
+
+.payment-status-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.status-btn {
+    flex: 1 1 100px;
+    /* Allow growing and shrinking, minimum 100px basis */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-body);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-btn:hover {
+    border-color: var(--accent-color);
+    background: var(--bg-hover);
+}
+
+.status-btn.active.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.status-btn.active.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning-color);
+    border-color: var(--warning-color);
+}
+
+.status-btn.active.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+.partial-input-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* Actions Footer */
+.pos-actions {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1rem;
+}
+
+.pos-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.pos-btn.secondary {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.pos-btn.secondary:hover {
+    background: var(--border-color);
+}
+
+.pos-btn.primary {
+    background: var(--primary-color);
+    color: var(--primary-text-on-btn);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pos-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+    .pos-layout {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+        display: block;
+    }
+
+    .pos-sidebar {
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        padding: 1.5rem;
+    }
+
+    .invoice-panel {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        max-width: none;
+        top: 0;
+        left: 0;
+        transform: none;
+    }
+
+    .invoice-panel.open {
+        transform: none;
+    }
+}
+
+/* end invoice */
 
 /* =========================================
    2. RESET & BASE STYLES
@@ -1470,4 +1905,209 @@ input:focus {
     .settings-footer-section {
         margin-top: 1.5rem;
     }
+}
+
+/* Operation Modal Responsive */
+@media (max-width: 1100px) {
+
+    /* Tablet and small desktop: Keep them facing each other if width allows, 
+       but we previously switched to column. Let's make it smarter. */
+    .invoice-panel {
+        width: 98vw;
+        height: 96vh;
+        max-width: 1100px;
+        border-radius: 16px;
+    }
+
+    /* If we have width, let's keep the split but adjust parts */
+    .pos-layout {
+        grid-template-columns: 1fr;
+        /* Default to column for safety on stack */
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* However, inside the sidebar, we want cards facing each other */
+    .pos-sidebar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.25rem;
+        padding: 1.5rem;
+        border-top: 1px solid var(--border-color);
+        border-left: none;
+        max-height: 50vh;
+        overflow-y: auto;
+    }
+
+    .pos-main {
+        padding: 1.5rem;
+        flex: 1;
+    }
+}
+
+@media (max-width: 700px) {
+
+    /* Mobile / Narrow Screen: full screen modal, stacked layout, thumb-friendly actions */
+    /* Mobile / Narrow Screen: full screen modal, stacked layout, thumb-friendly actions */
+    .invoice-panel {
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+        transform: none;
+        padding: 0;
+    }
+
+    .pos-layout {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .pos-main {
+        padding: 1rem;
+        flex: 1 1 auto;
+        overflow-y: auto;
+    }
+
+    .pos-sidebar {
+        display: block;
+        padding: 0.75rem;
+        border-top: 1px solid var(--border-color);
+        max-height: none;
+        overflow: visible;
+    }
+
+    .pos-card {
+        margin-bottom: 0.75rem;
+    }
+
+    .pos-actions {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: linear-gradient(0deg, rgba(255, 255, 255, 0.02), transparent);
+    }
+
+    /* Make primary actions sticky and reachable on mobile */
+    .pos-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 10001;
+        backdrop-filter: blur(6px);
+    }
+
+    /* Ensure items area can scroll independently if content is large */
+    .pos-items-container {
+        max-height: calc(100vh - 240px);
+        overflow-y: auto;
+    }
+
+    /* Make invoice panel respect safe area and allow scrolling */
+    .invoice-panel {
+        inset: 0;
+        max-height: 100vh;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .pos-actions .pos-btn {
+        width: 100%;
+    }
+
+    .pos-header h2 {
+        font-size: 1.25rem;
+    }
+
+    /* Ensure important interactive areas are reachable and not occluded by mobile UI */
+    .invoice-overlay {
+        z-index: 9980;
+    }
+
+}
+
+/* On small screens, relax table min-width to allow wrapping when needed */
+@media (max-width: 700px) {
+    .pos-table {
+        min-width: 520px;
+    }
+
+    .pos-table th,
+    .pos-table td {
+        padding: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .pos-search-section input {
+        height: 48px;
+        font-size: 1rem;
+    }
+}
+
+/* When the component reports a small panel size, hide sidebar by default and provide drawer styles */
+.invoice-panel[data-panel-size="small"] .pos-sidebar[data-hidden="true"] {
+    display: none;
+}
+
+.invoice-panel[data-panel-size="small"] .pos-sidebar.mobile-drawer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10002;
+    margin: 0.5rem;
+    border-radius: 12px 12px 0 0;
+    max-height: 60vh;
+    overflow: auto;
+}
+
+.sidebar-toggle {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+}
+
+.sidebar-toggle:hover {
+    background: var(--bg-hover);
+}
+
+/* Panel Size Specific Adjustments */
+.invoice-panel[data-panel-size="small"] .payment-status-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* 2 columns for better focus */
+    gap: 0.5rem;
+}
+
+.invoice-panel[data-panel-size="small"] .status-btn {
+    flex-direction: column;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.invoice-panel[data-panel-size="small"] .status-btn:last-child {
+    grid-column: span 2;
+    flex-direction: row;
+}
+
+.invoice-panel[data-panel-size="small"] .pos-totals .total-row.main span:last-child {
+    font-size: 20px;
+}
+
+.customer-card .form-group {
+    margin-bottom: 0;
+}
+
+/* Ensure CustomAutocomplete also looks good in cards */
+.pos-card .form-group label {
+    display: none;
+    /* Hide internal labels since card-label handles it */
 }
