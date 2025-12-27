@@ -143,17 +143,58 @@ const Settings = () => {
 
     const [activeTab, setActiveTab] = useState('general');
     const [appVersion, setAppVersion] = useState('1.0.0');
-    const [mockReleases, setMockReleases] = useState([
-        { version: '1.10.23', date: '2025-12-25', current: true },
-        { version: '1.10.22', date: '2025-12-20' },
-        { version: '1.10.21', date: '2025-12-15' },
-    ]);
+    const [releases, setReleases] = useState([]);
+    const [fetching, setFetching] = useState(false);
 
     React.useEffect(() => {
         if (window.electron?.getAppVersion) {
             window.electron.getAppVersion().then(v => setAppVersion(v));
         }
+
+        const fetchReleases = async () => {
+            setFetching(true);
+            try {
+                const response = await fetch('https://api.github.com/repos/TemRevil/gunter/releases');
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setReleases(data.map(rel => ({
+                        version: rel.tag_name.replace('v', ''),
+                        date: new Date(rel.published_at).toLocaleDateString(),
+                        url: rel.assets.find(a => a.name.endsWith('.exe'))?.browser_download_url || rel.html_url
+                    })));
+                }
+            } catch (err) {
+                console.error("Failed to fetch releases:", err);
+            } finally {
+                setFetching(false);
+            }
+        };
+
+        fetchReleases();
     }, []);
+
+    const togglePinVersion = (version) => {
+        const isPinned = settings.pinnedVersion === version;
+        setData(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                pinnedVersion: isPinned ? null : version,
+                autoCheckUpdates: isPinned ? true : false // Disable updates if pinning
+            }
+        }));
+        window.showToast?.(isPinned ? t('unpinVersion') : t('pinnedVersionActive'), 'success');
+    };
+
+    const handleRollback = (rel) => {
+        window.customConfirm?.(t('rollbackUpdate'), t('applyVersionConfirm'), () => {
+            if (window.electron?.openExternal) {
+                window.electron.openExternal(rel.url);
+            } else {
+                window.open(rel.url, '_blank');
+            }
+        });
+    };
 
     const handleReceiptUpdate = (e) => {
         e.preventDefault();
@@ -373,21 +414,53 @@ const Settings = () => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                                             <History size={16} />
                                             <h4 style={{ margin: 0 }}>{t('releases')}</h4>
+                                            {fetching && <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>({t('fetchingReleases')})</span>}
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {mockReleases.map(rel => (
-                                                <div key={rel.version} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-sm)' }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>v{rel.version} {rel.current && <span className="badge success" style={{ fontSize: '0.6rem' }}>Current</span>}</div>
-                                                        <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{rel.date}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                            {releases.map(rel => {
+                                                const isCurrent = rel.version === appVersion;
+                                                const isPinned = settings.pinnedVersion === rel.version;
+                                                return (
+                                                    <div key={rel.version} style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        padding: '0.75rem',
+                                                        background: 'var(--bg-body)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        border: isPinned ? '1px solid var(--accent-color)' : '1px solid transparent',
+                                                        boxShadow: isPinned ? '0 0 10px rgba(59, 130, 246, 0.1)' : 'none'
+                                                    }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>v{rel.version}</span>
+                                                                {isCurrent && <span className="badge success" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>Current</span>}
+                                                                {isPinned && <span className="badge info" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: 'var(--accent-color)', color: 'white' }}>Pinned</span>}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', opacity: 0.5 }}>{rel.date}</div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                            <button
+                                                                className={`btn btn-icon ${isPinned ? 'active' : ''}`}
+                                                                title={isPinned ? t('unpinVersion') : t('pinVersion')}
+                                                                onClick={() => togglePinVersion(rel.version)}
+                                                                style={{ padding: '0.4rem', color: isPinned ? 'var(--accent-color)' : 'inherit' }}
+                                                            >
+                                                                <Lock size={16} />
+                                                            </button>
+                                                            {!isCurrent && (
+                                                                <button
+                                                                    className="btn btn-secondary btn-sm"
+                                                                    onClick={() => handleRollback(rel)}
+                                                                    style={{ gap: '0.4rem', boxPadding: '0.4rem 0.75rem' }}
+                                                                >
+                                                                    <RotateCcw size={14} /> {t('rollbackUpdate')}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    {!rel.current && (
-                                                        <button className="btn btn-secondary btn-sm" onClick={() => window.showToast?.('Rollback feature simulated', 'info')}>
-                                                            <RotateCcw size={14} /> {t('rollbackUpdate')}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>

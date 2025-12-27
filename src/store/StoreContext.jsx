@@ -552,6 +552,8 @@ export const StoreProvider = ({ children }) => {
     };
 
     const checkAppUpdates = async (manual = false) => {
+        if (data.settings.pinnedVersion && !manual) return { pinned: true };
+
         // Prefer Electron auto-updater when running in Electron
         if (window.electron && window.electron.checkForUpdates) {
             try {

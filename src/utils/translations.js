@@ -215,6 +215,13 @@ export const translations = {
         defaultReceiptTitle: 'اسم النشاط التجاري',
         defaultReceiptAddress: 'العنوان بالتفصيل',
         defaultReceiptFooter: 'شكراً لزيارتكم',
+        releases: 'إصدارات النظام',
+        rollbackUpdate: 'العودة لهذا الإصدار',
+        pinVersion: 'تثبيت هذا الإصدار فقط',
+        unpinVersion: 'إلغاء تثبيت الإصدار',
+        pinnedVersionActive: 'مثبت حالياً',
+        fetchingReleases: 'جاري جلب الإصدارات...',
+        applyVersionConfirm: 'هل أنت متأكد من رغبتك في تحميل هذا الإصدار والعودة إليه؟ سيتم فتح الرابط في المتصفح لتحميل المثبت.',
     },
     en: {
         appName: 'Gunter',
@@ -432,5 +439,12 @@ export const translations = {
         defaultReceiptTitle: 'Business Name',
         defaultReceiptAddress: 'Detailed Address',
         defaultReceiptFooter: 'Thank you for your visit',
+        releases: 'System Releases',
+        rollbackUpdate: 'Back to this version',
+        pinVersion: 'Stick to this version only',
+        unpinVersion: 'Unpin version',
+        pinnedVersionActive: 'Pinned',
+        fetchingReleases: 'Fetching releases...',
+        applyVersionConfirm: 'Are you sure you want to download and go back to this version? This will open the download link in your browser.',
     }
 };
