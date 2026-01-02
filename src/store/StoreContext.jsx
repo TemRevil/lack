@@ -576,6 +576,11 @@ export const StoreProvider = ({ children }) => {
     };
 
     const checkAppUpdates = async (manual = false) => {
+        // Only check if manually requested OR if auto-updates are enabled
+        if (!manual && !data.settings.autoUpdateEnabled) {
+            return { updateFound: false, disabled: true };
+        }
+
         if (data.settings.pinnedVersion && !manual) return { pinned: true };
 
         // Prefer Electron auto-updater when running in Electron
@@ -586,18 +591,21 @@ export const StoreProvider = ({ children }) => {
                     setUpdateState(prev => ({ ...prev, checking: true }));
                 }
 
-                const res = await window.electron.checkForUpdates(manual);
+                // Add timeout to prevent stuck loading
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Update check timeout')), 30000); // 30 second timeout
+                });
+
+                const updatePromise = window.electron.checkForUpdates(manual);
+
+                const res = await Promise.race([updatePromise, timeoutPromise]);
 
                 if (manual) {
                     const currentVersion = await window.electron.getAppVersion();
-                    // Fallback "Up to date" notification if regular event didn't fire with an update
-                    // We assume that if update was found, the listener handles it. 
-                    // But if we are here and res.updateInfo matches current, or is missing we say up to date.
 
                     if (res?.updateInfo?.version && res.updateInfo.version === currentVersion) {
                         addNotification(translations[data.settings.language].upToDate.replace('%v', currentVersion), 'success');
                     } else if (!res?.updateInfo) {
-                        // Sometimes result is null if no update found
                         addNotification(translations[data.settings.language].upToDate.replace('%v', currentVersion), 'success');
                     }
                 }
@@ -606,15 +614,13 @@ export const StoreProvider = ({ children }) => {
                 return { updateFound: false };
             } catch (err) {
                 console.warn('Electron update check warning:', err);
-                // "Error: Please check update first" often means we tried to download without checking, 
-                // or checked too frequently. We can suppress it or show a friendlier message.
+                setUpdateState(prev => ({ ...prev, checking: false }));
 
                 if (manual) {
-                    // Check if it's the specific "Please check update first" error (which is actually harmless/confusing in this flow sometimes)
-                    if (err.message && err.message.includes('Please check update first')) {
-                        // It might mean a check is already running or state is mismatched.
-                        // We can try to re-run check or just ignore. 
-                        // For now, let's treat it as a temporary glich.
+                    if (err.message && err.message.includes('timeout')) {
+                        addNotification(data.settings.language === 'ar' ? 'انتهت مهلة التحقق من التحديثات' : 'Update check timed out', 'warning');
+                    } else if (err.message && err.message.includes('Please check update first')) {
+                        // Silently ignore this specific error
                     } else {
                         addNotification(data.settings.language === 'ar' ? 'فشل التحقق من التحديثات' : 'Failed to check updates', 'danger');
                     }

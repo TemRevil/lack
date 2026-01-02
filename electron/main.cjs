@@ -129,27 +129,8 @@ app.whenReady().then(async () => {
         }
     });
 
-    // TEST HOOK: allow forcing a check for updates against configured provider (e.g., GitHub)
-    if (process.env.TEST_CHECK_PROVIDER === 'github') {
-        log.info('TEST_CHECK_PROVIDER=github detected — invoking autoUpdater.checkForUpdates()');
-        try {
-            const res = await autoUpdater.checkForUpdates();
-            log.info('checkForUpdates result:', res);
-            console.log('checkForUpdates result:', res);
-        } catch (err) {
-            log.error('checkForUpdates failed:', err);
-            console.error('checkForUpdates failed:', err);
-        }
-    } else if (app.isPackaged) {
-        // Auto-check for updates on startup in production builds
-        log.info('App is packaged — checking for updates on startup');
-        try {
-            const res = await autoUpdater.checkForUpdates();
-            log.info('Startup checkForUpdates result:', res);
-        } catch (err) {
-            log.error('Startup checkForUpdates failed:', err);
-        }
-    }
+    // Auto-update disabled by default - users can manually check via settings
+    log.info('App ready. Auto-update is disabled by default.');
 });
 
 app.on('window-all-closed', () => {

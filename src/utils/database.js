@@ -383,6 +383,7 @@ export class Database {
                     allowNegativeStock: true
                 },
                 autoStartNewDay: false,
+                autoUpdateEnabled: false,
                 appTitle: '',
                 extraReceiptInputs: []
             }

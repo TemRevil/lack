@@ -435,11 +435,11 @@ const Settings = () => {
                                 <div className="settings-item-row" onClick={() => {
                                     setData(prev => ({
                                         ...prev,
-                                        settings: { ...prev.settings, autoCheckUpdates: !prev.settings.autoCheckUpdates }
+                                        settings: { ...prev.settings, autoUpdateEnabled: !prev.settings.autoUpdateEnabled }
                                     }));
                                 }} style={{ padding: '0.75rem', marginBottom: '1rem' }}>
                                     <div><span className="settings-item-label">{t('autoCheckUpdates')}</span></div>
-                                    <div className={`toggle-switch ${settings.autoCheckUpdates ? 'active' : ''}`}><div className="toggle-knob" /></div>
+                                    <div className={`toggle-switch ${settings.autoUpdateEnabled ? 'active' : ''}`}><div className="toggle-knob" /></div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>
