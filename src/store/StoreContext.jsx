@@ -588,15 +588,22 @@ export const StoreProvider = ({ children }) => {
     };
 
     const checkAppUpdates = async (manual = false) => {
+        console.log(`🔍 [Update Check] Starting... Manual: ${manual}, Auto-enabled: ${data.settings.autoUpdateEnabled}`);
+
         // Only check if manually requested OR if auto-updates are enabled
         if (!manual && !data.settings.autoUpdateEnabled) {
+            console.log('⏭️ [Update Check] Skipped - Auto-updates disabled');
             return { updateFound: false, disabled: true };
         }
 
-        if (data.settings.pinnedVersion && !manual) return { pinned: true };
+        if (data.settings.pinnedVersion && !manual) {
+            console.log(`📌 [Update Check] Skipped - Version pinned to ${data.settings.pinnedVersion}`);
+            return { pinned: true };
+        }
 
         // Prefer Electron auto-updater when running in Electron
         if (window.electron && window.electron.checkForUpdates) {
+            console.log('🖥️ [Update Check] Using Electron auto-updater');
             try {
                 if (manual) {
                     window.showToast?.(translations[data.settings.language].checkingForUpdates || 'Checking for updates...', 'info');
@@ -609,15 +616,20 @@ export const StoreProvider = ({ children }) => {
                 });
 
                 const updatePromise = window.electron.checkForUpdates(manual);
+                console.log('⏳ [Update Check] Waiting for response (30s timeout)...');
 
                 const res = await Promise.race([updatePromise, timeoutPromise]);
+                console.log('✅ [Update Check] Response received:', res);
 
                 if (manual) {
                     const currentVersion = await window.electron.getAppVersion();
+                    console.log(`📦 [Update Check] Current version: ${currentVersion}`);
 
                     if (res?.updateInfo?.version && res.updateInfo.version === currentVersion) {
+                        console.log('✅ [Update Check] Already up to date');
                         addNotification(translations[data.settings.language].upToDate.replace('%v', currentVersion), 'success');
                     } else if (!res?.updateInfo) {
+                        console.log('✅ [Update Check] No update available');
                         addNotification(translations[data.settings.language].upToDate.replace('%v', currentVersion), 'success');
                     }
                 }
@@ -625,15 +637,18 @@ export const StoreProvider = ({ children }) => {
                 setUpdateState(prev => ({ ...prev, checking: false }));
                 return { updateFound: false };
             } catch (err) {
-                console.warn('Electron update check warning:', err);
+                console.error('❌ [Update Check] Error:', err);
                 setUpdateState(prev => ({ ...prev, checking: false }));
 
                 if (manual) {
                     if (err.message && err.message.includes('timeout')) {
+                        console.warn('⏱️ [Update Check] Timeout after 30 seconds');
                         addNotification(data.settings.language === 'ar' ? 'انتهت مهلة التحقق من التحديثات' : 'Update check timed out', 'warning');
                     } else if (err.message && err.message.includes('Please check update first')) {
+                        console.log('ℹ️ [Update Check] Duplicate check ignored');
                         // Silently ignore this specific error
                     } else {
+                        console.error('💥 [Update Check] Failed:', err.message);
                         addNotification(data.settings.language === 'ar' ? 'فشل التحقق من التحديثات' : 'Failed to check updates', 'danger');
                     }
                 }
@@ -641,6 +656,7 @@ export const StoreProvider = ({ children }) => {
             }
         }
 
+        console.log('ℹ️ [Update Check] No Electron updater available');
         return { updateFound: false };
     };
 
@@ -752,13 +768,14 @@ export const StoreProvider = ({ children }) => {
         window.electron.onUpdateLog(onLog);
 
         const downloadUpdate = async () => {
+            console.log('📥 [Update Download] Starting download...');
             if (window.electron?.downloadUpdate) {
                 setUpdateState(prev => ({ ...prev, downloading: true, progress: 0, show: true, message: t('startingUpdate') }));
 
                 try {
                     // Add timeout for download start
                     const downloadTimeout = setTimeout(() => {
-                        console.warn('Download timeout - no progress detected');
+                        console.warn('⏱️ [Update Download] Timeout - no progress after 60s');
                         setUpdateState(prev => ({
                             ...prev,
                             downloading: false,
@@ -768,18 +785,26 @@ export const StoreProvider = ({ children }) => {
                         addNotification(t('downloadError') || 'Download timed out', 'danger');
                     }, 60000); // 60 second timeout
 
+                    console.log('⏳ [Update Download] Calling downloadUpdate...');
                     await window.electron.downloadUpdate();
+                    console.log('✅ [Update Download] Download initiated');
                     clearTimeout(downloadTimeout);
                 } catch (err) {
-                    console.error('Download error:', err);
+                    console.error('❌ [Update Download] Error:', err);
                     setUpdateState(prev => ({ ...prev, downloading: false, show: false }));
                     addNotification(t('downloadError') || 'Download failed', 'danger');
                 }
+            } else {
+                console.error('❌ [Update Download] Not available');
             }
         };
         const installUpdate = () => {
+            console.log('📦 [Update Install] Installing update...');
             if (window.electron?.installUpdate) {
                 window.electron.installUpdate();
+                console.log('✅ [Update Install] Triggered');
+            } else {
+                console.error('❌ [Update Install] Not available');
             }
         };
         const clearUpdateState = () => setUpdateState({ checking: false, available: false, availableVersion: null, downloading: false, progress: 0, downloaded: false, show: false, message: '' });

@@ -219,15 +219,25 @@ const Settings = () => {
         window.showToast?.(isPinned ? t('unpinVersion') : t('pinnedVersionActive'), 'success');
     };
 
-    const handleRollback = (version) => {
+    const handleRollback = async (version) => {
         const rel = releases.find(r => r.version === version);
-        if (!rel) return;
+        if (!rel || !rel.url) {
+            window.showToast?.('Download URL not found', 'danger');
+            return;
+        }
 
-        window.customConfirm?.(t('rollbackUpdate'), t('applyVersionConfirm'), () => {
-            if (window.electron?.executeUpdate) {
-                window.electron.executeUpdate(rel.url);
+        console.log(`🔄 [Rollback] Downloading version ${version} from:`, rel.url);
+
+        window.customConfirm?.(t('rollbackUpdate'), `${t('applyVersionConfirm')} v${version}?`, async () => {
+            console.log('📥 [Rollback] User confirmed, opening download...');
+
+            // Open the download URL
+            if (window.electron?.openExternal) {
+                window.electron.openExternal(rel.url);
+                window.showToast?.(`Downloading v${version}...`, 'info');
             } else {
                 window.open(rel.url, '_blank');
+                window.showToast?.(`Opening download for v${version}...`, 'info');
             }
         });
     };
