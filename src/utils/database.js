@@ -168,15 +168,37 @@ export class Database {
                 return this.migrate(data);
             }
 
-            // Ensure existing databases get default passwords and core arrays
+            // Ensure existing databases get default settings and core arrays
             try {
-                if (!data.settings) data.settings = this.getDefaultData().settings;
+                const defaultData = this.getDefaultData();
+
+                // Robust settings merge
+                if (!data.settings) {
+                    data.settings = defaultData.settings;
+                } else {
+                    // Merge top-level settings and nested objects
+                    data.settings = {
+                        ...defaultData.settings,
+                        ...data.settings,
+                        security: {
+                            ...defaultData.settings.security,
+                            ...(data.settings.security || {})
+                        },
+                        receipt: {
+                            ...defaultData.settings.receipt,
+                            ...(data.settings.receipt || {})
+                        }
+                    };
+                }
+
+                // Ensure each setting has its default value if missing or empty
                 if (typeof data.settings.loginPassword === 'undefined' || data.settings.loginPassword === '') {
                     data.settings.loginPassword = '0';
                 }
                 if (typeof data.settings.adminPassword === 'undefined' || data.settings.adminPassword === '') {
                     data.settings.adminPassword = '0';
                 }
+
                 // Ensure core arrays exist to avoid undefined property access in UI
                 if (!Array.isArray(data.customers)) data.customers = [];
                 // Ensure each customer has a stable id to avoid empty-id collisions
@@ -188,6 +210,7 @@ export class Database {
                 if (!Array.isArray(data.operations)) data.operations = [];
                 if (!Array.isArray(data.transactions)) data.transactions = [];
                 if (!Array.isArray(data.notifications)) data.notifications = [];
+
                 // Persist any fixes
                 this.data = data;
                 this.save();

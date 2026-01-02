@@ -162,11 +162,10 @@ function App() {
                                     className="btn btn-primary"
                                     onClick={() => {
                                         if (updateState.isRollback) {
-                                            // Handle rollback download
-                                            // (Usually already triggered by the rollback button in Settings,
-                                            // but this is here just in case)
+                                            // Rolling back is usually handled by the specific button in Settings,
+                                            // which calls downloadRollback directly.
                                         } else {
-                                            downloadUpdate?.[0] ? downloadUpdate[0]() : downloadUpdate?.();
+                                            downloadUpdate?.();
                                         }
                                     }}
                                 >

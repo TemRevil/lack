@@ -34,5 +34,13 @@ contextBridge.exposeInMainWorld('electron', {
     openExternal: (url) => {
         const { shell } = require('electron');
         shell.openExternal(url);
+    },
+    // Cleanup listeners
+    removeAllUpdateListeners: () => {
+        const channels = [
+            'update-available', 'update-not-available', 'update-downloaded',
+            'update-error', 'update-download-progress', 'update-log'
+        ];
+        channels.forEach(ch => ipcRenderer.removeAllListeners(ch));
     }
 });

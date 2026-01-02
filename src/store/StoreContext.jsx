@@ -769,6 +769,12 @@ export const StoreProvider = ({ children }) => {
             }
         };
 
+        const removeListeners = () => {
+            if (window.electron?.removeAllUpdateListeners) {
+                window.electron.removeAllUpdateListeners();
+            }
+        };
+
         window.electron.onUpdateAvailable(onAvailable);
         window.electron.onUpdateNotAvailable(onNotAvailable);
         window.electron.onUpdateDownloaded(onDownloaded);
@@ -777,34 +783,32 @@ export const StoreProvider = ({ children }) => {
         window.electron.onUpdateLog(onLog);
 
         const downloadUpdate = async () => {
-            console.log('📥 [Update Download] Starting download...');
+            console.log('📥 [Update Download] Calling window.electron.downloadUpdate()...');
             if (window.electron?.downloadUpdate) {
-                setUpdateState(prev => ({ ...prev, downloading: true, progress: 0, show: true, message: t('startingUpdate') }));
+                setUpdateState(prev => ({
+                    ...prev,
+                    downloading: true,
+                    progress: 0,
+                    show: true,
+                    message: t('startingUpdate'),
+                    isRollback: false
+                }));
 
                 try {
-                    // Add timeout for download start
                     const downloadTimeout = setTimeout(() => {
                         console.warn('⏱️ [Update Download] Timeout - no progress after 60s');
-                        setUpdateState(prev => ({
-                            ...prev,
-                            downloading: false,
-                            show: false,
-                            message: ''
-                        }));
+                        setUpdateState(prev => ({ ...prev, downloading: false, show: false }));
                         addNotification(t('downloadError') || 'Download timed out', 'danger');
-                    }, 60000); // 60 second timeout
+                    }, 60000);
 
-                    console.log('⏳ [Update Download] Calling downloadUpdate...');
                     await window.electron.downloadUpdate();
-                    console.log('✅ [Update Download] Download initiated');
+                    console.log('✅ [Update Download] downloadUpdate promise resolved');
                     clearTimeout(downloadTimeout);
                 } catch (err) {
-                    console.error('❌ [Update Download] Error:', err);
+                    console.error('❌ [Update Download] Failed:', err);
                     setUpdateState(prev => ({ ...prev, downloading: false, show: false }));
                     addNotification(t('downloadError') || 'Download failed', 'danger');
                 }
-            } else {
-                console.error('❌ [Update Download] Not available');
             }
         };
         const installUpdate = () => {
@@ -821,7 +825,7 @@ export const StoreProvider = ({ children }) => {
         };
 
         const downloadRollback = async (url, version) => {
-            console.log(`🔄 [Rollback Download] Version ${version} from ${url}`);
+            console.log(`🔄 [Rollback Download] Starting rollback to ${version}...`);
             if (window.electron?.downloadFromUrl) {
                 setUpdateState({
                     checking: false,
@@ -838,11 +842,11 @@ export const StoreProvider = ({ children }) => {
 
                 try {
                     await window.electron.downloadFromUrl(url);
-                    console.log('✅ [Rollback Download] Initiated');
+                    console.log('✅ [Rollback Download] Finished');
                 } catch (err) {
                     console.error('❌ [Rollback Download] Error:', err);
                     setUpdateState(prev => ({ ...prev, downloading: false, show: false }));
-                    addNotification(t('downloadError') || 'Download failed', 'danger');
+                    addNotification(t('downloadError') || 'Rollback failed', 'danger');
                 }
             }
         };
@@ -865,7 +869,9 @@ export const StoreProvider = ({ children }) => {
         window._gunterInstallUpdate = installUpdate;
         window._gunterClearUpdateState = clearUpdateState;
 
-        return () => { };
+        return () => {
+            removeListeners();
+        };
     }, [data.settings.language]);
 
     const value = {

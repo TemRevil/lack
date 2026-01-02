@@ -10,7 +10,7 @@ const log = require('electron-log');
 
 log.transports.file.resolvePath = () => path.join(app.getPath('userData'), 'logs', 'main.log');
 autoUpdater.logger = log;
-autoUpdater.autoDownload = false; // we will control download manually
+autoUpdater.autoDownload = true; // Automatically start download when update is found
 
 function createWindow() {
     const isDev = !app.isPackaged;
@@ -43,10 +43,12 @@ function createWindow() {
     });
 
     autoUpdater.on('update-available', (info) => {
+        log.info('Update available:', info.version);
         mainWindow.webContents.send('update-available', info);
     });
 
     autoUpdater.on('update-not-available', (info) => {
+        log.info('Update not available');
         mainWindow.webContents.send('update-not-available', info);
     });
 
@@ -56,10 +58,15 @@ function createWindow() {
     });
 
     autoUpdater.on('download-progress', (progress) => {
+        // Reduced frequency of progress logs to avoid spamming main log
+        if (Math.round(progress.percent) % 10 === 0) {
+            log.info(`Download progress: ${Math.round(progress.percent)}%`);
+        }
         mainWindow.webContents.send('update-download-progress', progress);
     });
 
     autoUpdater.on('update-downloaded', (info) => {
+        log.info('Update downloaded:', info.version);
         mainWindow.webContents.send('update-downloaded', info);
     });
 }
