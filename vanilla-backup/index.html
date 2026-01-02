@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة قطع الغيار</title>
+    <!-- Google Fonts: Cairo for modern Arabic typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- License Activation Screen -->
+    <div id="license-screen" class="login-overlay" style="display:none; z-index: 10001;">
+        <div class="login-box card" style="max-width: 500px;">
+            <h2><i class="fa-solid fa-key"></i> تنشيط النظام</h2>
+            <p>النظام غير منشط. برجاء إدخال كود التنشيط (XXXXX-XXXXX-XXXXX-XXXXX-XXXXX)</p>
+            <form id="license-form">
+                <input type="text" id="license-input" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" required
+                    style="text-align: center; font-family: monospace; letter-spacing: 2px;">
+                <button type="submit" class="btn btn-primary">تنشيط</button>
+            </form>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-secondary);">
+                * هذا النظام محمي بموجب ترخيص الاستخدام.
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Menu Toggle -->
+    <button id="mobile-menu-toggle" class="btn btn-primary mobile-only">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div id="mobile-sidebar-overlay" class="mobile-overlay"></div>
+
+    <!-- System Login Overlay -->
+    <div id="system-login-screen" class="login-overlay">
+        <div class="login-box card">
+            <h2><i class="fa-solid fa-lock"></i> الدخول للنظام</h2>
+            <p>برجاء إدخال كلمة مرور النظام للمتابعة</p>
+            <form id="system-login-form">
+                <input type="password" id="sys-pass-input" placeholder="كلمة المرور..." required>
+                <button type="submit" class="btn btn-primary">دخول</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-gears"></i>
+                <h2>الميكانيكي</h2>
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li class="active" data-tab="operations">
+                        <div class="nav-item-group">
+                            <i class="fa-solid fa-calendar-check"></i>
+                            <span>العمليات</span>
+                        </div>
+                    </li>
+                    <li data-tab="storage">
+                        <div class="nav-item-group">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                            <span>المخزن</span>
+                        </div>
+                    </li>
+                    <li data-tab="customers">
+                        <div class="nav-item-group">
+                            <i class="fa-solid fa-users"></i>
+                            <span>العملاء</span>
+                        </div>
+                    </li>
+                    <li data-tab="notifications">
+                        <div class="nav-item-group">
+                            <i class="fa-solid fa-bell"></i>
+                            <span>التنبيهات</span>
+                        </div>
+                        <span id="nav-notify-count" class="badge">0</span>
+                    </li>
+                    <li data-tab="settings">
+                        <div class="nav-item-group">
+                            <i class="fa-solid fa-gear"></i>
+                            <span>الإعدادات</span>
+                        </div>
+                    </li>
+                    <li id="btn-end-session-sidebar" class="nav-logout">
+                        <div class="nav-item-group">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span>إغلاق اليومية</span>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Operations Section -->
+            <section id="operations" class="tab-content active">
+                <header class="section-header">
+                    <h2>العمليات اليومية</h2>
+                    <div class="actions">
+                        <!-- Custom Date Picker -->
+                        <div class="date-picker-trigger" id="date-picker-btn">
+                            <i class="fa-regular fa-calendar"></i>
+                            <span id="selected-date-display">اليوم</span>
+                            <div class="calendar-dropdown" id="calendar-dropdown">
+                                <div class="calendar-header">
+                                    <button class="btn btn-outline btn-sm" id="cal-prev-month"><i
+                                            class="fa-solid fa-chevron-right"></i></button>
+                                    <span id="cal-month-year"></span>
+                                    <button class="btn btn-outline btn-sm" id="cal-next-month"><i
+                                            class="fa-solid fa-chevron-left"></i></button>
+                                </div>
+                                <div class="calendar-grid" id="calendar-grid">
+                                    <!-- Days -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" id="btn-add-operation">
+                            <i class="fa-solid fa-plus"></i> عملية جديدة
+                        </button>
+                    </div>
+                </header>
+                <div class="table-container">
+                    <table class="data-table" id="operations-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="customer">العميل <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="part">القطعة <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="quantity">الكمية <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="price">السعر <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="time">الوقت <i class="fa-solid fa-sort"></i></th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Storage Section -->
+            <section id="storage" class="tab-content">
+                <header class="section-header">
+                    <h2>المخزن وقطع الغيار</h2>
+                    <div class="actions">
+                        <input type="text" class="search-input" id="storage-search" placeholder="بحث عن قطعة...">
+                        <button class="btn btn-primary" id="btn-add-part">
+                            <i class="fa-solid fa-plus"></i> إضافة قطعة
+                        </button>
+                    </div>
+                </header>
+                <div class="table-container">
+                    <table class="data-table" id="storage-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="name">اسم القطعة <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="code">الكود <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="quantity">الكمية <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="price">السعر <i class="fa-solid fa-sort"></i></th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Customers Section -->
+            <section id="customers" class="tab-content">
+                <header class="section-header">
+                    <h2>قائمة العملاء</h2>
+                    <div class="actions">
+                        <input type="text" class="search-input" id="customer-search" placeholder="بحث عن عميل...">
+                        <button class="btn btn-primary" id="btn-add-customer">
+                            <i class="fa-solid fa-user-plus"></i> إضافة عميل
+                        </button>
+                    </div>
+                </header>
+                <div class="table-container">
+                    <table class="data-table" id="customers-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="name">الاسم <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="phone">الهاتف <i class="fa-solid fa-sort"></i></th>
+                                <th data-sort="balance">الحساب (له/عليه) <i class="fa-solid fa-sort"></i></th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Notifications Section -->
+            <section id="notifications" class="tab-content">
+                <header class="section-header">
+                    <h2>مركز التنبيهات</h2>
+                    <button class="btn btn-secondary" id="btn-clear-notifications">مسح الكل</button>
+                </header>
+                <div class="notifications-list" id="notifications-list">
+                    <!-- Notifications generated by JS -->
+                </div>
+            </section>
+
+            <!-- Settings Tab (Modified) -->
+            <section id="settings" class="tab-content">
+                <div class="settings-container">
+                    <div class="settings-card card">
+                        <h3><i class="fa-solid fa-lock"></i> إعدادات الحماية</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label>كلمة مرور النظام (الحالية: <span id="current-sys-pass">***</span>)</label>
+                                <form id="change-login-pass-form" style="display:flex; gap:10px;">
+                                    <input type="text" id="new-sys-pass" placeholder="كلمة مرور جديدة..." required>
+                                    <button type="submit" class="btn btn-secondary">تغيير</button>
+                                </form>
+                            </div>
+                            <div class="setting-item">
+                                <label>كلمة مرور الإعدادات (الحالية: <span id="current-admin-pass">***</span>)</label>
+                                <form id="change-admin-pass-form" style="display:flex; gap:10px;">
+                                    <input type="text" id="new-admin-pass" placeholder="كلمة مرور جديدة..." required>
+                                    <button type="submit" class="btn btn-secondary">تغيير</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-card card" style="margin-top:20px;">
+                        <h3><i class="fa-solid fa-shield-check"></i> معلومات الترخيص (License)</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item" style="grid-column: 1 / -1;">
+                                <div
+                                    style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                                    <div>
+                                        <p>حالة النظام: <span
+                                                style="color: var(--success-color); font-weight: bold;">مُنشط
+                                                بنجاح</span></p>
+                                        <p style="font-size: 0.9rem; margin-top: 5px;">كود التنشيط: <span
+                                                id="license-display">XXXX-XXXX-XXXX-XXXX-5821</span></p>
+                                    </div>
+                                    <button id="btn-change-license" class="btn btn-outline btn-sm">تغيير الكود</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-card card" style="margin-top:20px;">
+                        <h3><i class="fa-solid fa-file-invoice"></i> بيانات الوصل (الفاتورة)</h3>
+                        <div class="settings-grid">
+                            <form id="receipt-settings-form" style="grid-column: 1 / -1;">
+                                <div class="form-group">
+                                    <label>اسم المحل / العنوان الرئيسي</label>
+                                    <input type="text" id="receipt-title" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>العنوان</label>
+                                    <input type="text" id="receipt-address">
+                                </div>
+                                <div class="form-group">
+                                    <label>رقم الهاتف</label>
+                                    <input type="text" id="receipt-phone">
+                                </div>
+                                <div class="form-group">
+                                    <label>رسالة الترحيب (أسفل الوصل)</label>
+                                    <input type="text" id="receipt-footer">
+                                </div>
+                                <div style="display:flex; gap:10px; margin-top:10px;">
+                                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> حفظ
+                                        التغييرات</button>
+                                    <button type="button" id="btn-preview-receipt" class="btn btn-secondary"><i
+                                            class="fa-solid fa-eye"></i> معاينة الوصل (Preview)</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="settings-card card" style="margin-top:20px;">
+                        <h3><i class="fa-solid fa-palette"></i> المظهر والبيانات</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <span>الوضع الليلي</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="theme-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <span>تصدير نسخة احتياطية</span>
+                                <button id="btn-export-data" class="btn"><i class="fa-solid fa-download"></i> تصدير
+                                    البيانات</button>
+                            </div>
+                            <div class="setting-item">
+                                <span>استيراد بيانات</span>
+                                <input type="file" id="import-file" style="display:none;">
+                                <button onclick="document.getElementById('import-file').click()" class="btn"><i
+                                        class="fa-solid fa-upload"></i> استيراد</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add/Edit Operation Modal -->
+    <div id="operation-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="operation-modal-title">عملية بيع جديدة</h2>
+            <form id="operation-form" autocomplete="off">
+                <input type="hidden" id="op-id">
+
+                <!-- Customer Autocomplete -->
+                <div class="form-group">
+                    <label>العميل</label>
+                    <div class="autocomplete-container">
+                        <input type="text" id="op-customer-input" placeholder="اكتب اسم العميل..." required>
+                        <input type="hidden" id="op-customer-id">
+                    </div>
+                </div>
+
+                <!-- Part Autocomplete -->
+                <div class="form-group">
+                    <label>القطعة</label>
+                    <div class="autocomplete-container">
+                        <input type="text" id="op-part-input" placeholder="ابحث عن قطعة..." required>
+                        <input type="hidden" id="op-part-id">
+                    </div>
+                </div>
+
+                <!-- Quantity -->
+                <div class="form-group">
+                    <label>الكمية</label>
+                    <input type="number" id="op-quantity" value="1" min="1" required>
+                </div>
+
+                <!-- Price Display (Read Only) -->
+                <div class="form-group">
+                    <label>اجمالي السعر (الكمية × سعر القطعة)</label>
+                    <div id="op-price-display" class="price-display">0</div>
+                    <input type="hidden" id="op-price-hidden">
+                </div>
+
+                <div class="form-group">
+                    <label>نوع الدفع</label>
+                    <select id="op-payment-status">
+                        <option value="paid">مدفوع بالكامل</option>
+                        <option value="partial">دفع جزئي</option>
+                        <option value="unpaid">آجل (دين)</option>
+                    </select>
+                </div>
+                <!-- Hidden by default, shown if partial -->
+                <div class="form-group" id="op-paid-amount-group" style="display:none;">
+                    <label>المبلغ المدفوع</label>
+                    <input type="text" class="numeric-input" id="op-paid-amount" placeholder="0">
+                </div>
+                <button type="submit" class="btn btn-primary submit-btn">حفظ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Part Modal -->
+    <div id="part-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="part-modal-title">إضافة قطعة</h2>
+            <form id="part-form">
+                <input type="hidden" id="part-id">
+                <div class="form-group">
+                    <label>اسم القطعة</label>
+                    <input type="text" id="part-name" required>
+                </div>
+                <div class="form-group">
+                    <label>الكود</label>
+                    <input type="text" id="part-code">
+                </div>
+                <div class="form-group">
+                    <label>الكمية</label>
+                    <input type="text" class="numeric-input" id="part-quantity" required>
+                </div>
+                <div class="form-group">
+                    <label>السعر الافتراضي</label>
+                    <input type="text" class="numeric-input" id="part-price" required>
+                </div>
+                <div class="form-group">
+                    <label>تنبيه انخفاض المخزون عند</label>
+                    <input type="text" class="numeric-input" id="part-threshold" value="5">
+                </div>
+                <button type="submit" class="btn btn-primary submit-btn">حفظ</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-stock-modal" class="modal">
+        <div class="modal-content small-modal">
+            <span class="close-modal">&times;</span>
+            <h2>إضافة كمية للمخزون</h2>
+            <div id="add-stock-part-name" style="margin-bottom: 1rem; font-weight: bold; color: var(--primary-color);">
+            </div>
+            <form id="add-stock-form">
+                <input type="hidden" id="add-stock-id">
+                <div class="form-group">
+                    <label>الكمية المضافة</label>
+                    <input type="text" class="numeric-input" id="add-stock-quantity" placeholder="0" required>
+                </div>
+                <button type="submit" class="btn btn-primary submit-btn">إضافة لرصيد المخزن</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Customer Modal -->
+    <div id="customer-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="customer-modal-title">بيانات العميل</h2>
+            <form id="customer-form">
+                <input type="hidden" id="cust-id">
+                <div class="form-group">
+                    <label>الاسم</label>
+                    <input type="text" id="cust-name" required>
+                </div>
+                <div class="form-group">
+                    <label>رقم الهاتف</label>
+                    <input type="text" class="numeric-input" id="cust-phone">
+                </div>
+                <div class="form-group">
+                    <label>العنوان</label>
+                    <input type="text" id="cust-address">
+                </div>
+                <div class="form-group">
+                    <label>رصيد العميل (بالسالب = عليه / بالموجب = له)</label>
+                    <input type="text" class="numeric-input" id="cust-balance" value="0">
+                </div>
+                <button type="submit" class="btn btn-primary submit-btn">حفظ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Customer History Modal -->
+    <div id="customer-history-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>سجل العميل</h2>
+            <div id="history-customer-info" style="margin-bottom:1rem; font-weight:bold;"></div>
+
+            <div class="history-table-container">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>البيان</th>
+                            <th>المبلغ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body"></tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <h3>تسديد دين / دفع مبلغ</h3>
+                <form id="pay-debt-form">
+                    <input type="hidden" id="pay-debt-cust-id">
+                    <div class="form-group">
+                        <input type="text" class="numeric-input" id="pay-debt-amount" placeholder="المبلغ" required>
+                    </div>
+                    <button type="submit" class="btn btn-success"><i class="fa-solid fa-money-bill"></i> دفع</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Password Modal -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content small-modal">
+            <span class="close-modal">&times;</span>
+            <h2>تأكيد هوية المدير</h2>
+            <form id="admin-form">
+                <div class="form-group">
+                    <label>كلمة المرور</label>
+                    <input type="password" id="admin-password-input" required>
+                </div>
+                <button type="submit" class="btn btn-danger submit-btn">اذهب للإعدادات</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content small-modal" style="text-align:center;">
+            <h2>تأكيد الإجراء</h2>
+            <p id="confirm-message" style="margin: 15px 0;">هل أنت متأكد؟</p>
+            <div class="modal-actions" style="display:flex; gap:10px; justify-content:center;">
+                <button id="btn-confirm-yes" class="btn btn-danger">نعم</button>
+                <button id="btn-confirm-no" class="btn btn-secondary">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content small-modal">
+            <span class="close-modal">&times;</span>
+            <h2>تغيير كلمة المرور</h2>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label>كلمة المرور الحالية</label>
+                    <input type="password" id="old-password" required>
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور الجديدة</label>
+                    <input type="password" id="new-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary submit-btn">حفظ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- End Session Modal -->
+    <div id="end-session-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>إغلاق اليومية (End Session)</h2>
+            <div id="end-session-summary"
+                style="margin-bottom: 20px; padding: 15px; background: var(--bg-hover); border-radius: var(--radius-sm);">
+                <!-- Dynamic Summary -->
+            </div>
+
+            <form id="end-session-form">
+                <div class="form-group">
+                    <label>المبلغ الموجود فعلياً في الخزنة</label>
+                    <input type="text" class="numeric-input" id="safe-actual-amount" placeholder="أدخل المبلغ..."
+                        required>
+                </div>
+
+                <div id="end-session-diff-display" style="font-weight:bold; margin-bottom:15px; display:none;">
+                    الفرق: <span id="diff-value"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>كلمة مرور المدير للتأكيد</label>
+                    <input type="password" id="end-session-password" placeholder="كلمة المرور..." required>
+                </div>
+
+                <div class="modal-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="submit" class="btn btn-danger">إغلاق وطباعة ونسخ احتياطي</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Receipt Printer Invisible Area -->
+    <div id="print-area"></div>
+
+    <script src="store.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
