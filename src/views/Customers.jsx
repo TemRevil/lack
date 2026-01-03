@@ -103,7 +103,7 @@ const Customers = () => {
             id: op.id,
             key: `op-${op.id || idx}`,
             timestamp: op.timestamp,
-            label: op.items ? op.items.map(i => `${i.partName} (${i.quantity})`).join(', ') : `${op.partName} x ${op.quantity}`,
+            label: `#${op.id ? op.id.replace(/[^0-9]/g, '').slice(0, 8) : '---'}`,
             amount: op.price,
             paid: op.paidAmount,
             source: 'operation'

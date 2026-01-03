@@ -17,7 +17,7 @@ const ReceiptModal = ({ show, onClose, operation, operationId }) => {
             style={{
                 position: 'fixed',
                 inset: 0,
-                zIndex: 1200,
+                zIndex: 30000,
                 background: 'rgba(0,0,0,0.5)',
                 display: 'flex',
                 alignItems: 'center',
