@@ -695,7 +695,6 @@ const Operations = () => {
             ...formData,
             id: preGeneratedId || undefined, // Use the pre-generated ID if available
             customerId: finalCustomerId,
-            customerId: finalCustomerId,
             customerName: formData.customerName.trim(),
             price: finalTotal, // Adjusted price
             paidAmount: formData.paymentStatus === 'paid' ? finalTotal : (formData.paymentStatus === 'unpaid' ? 0 : parseFloat(formData.paidAmount || 0)),
