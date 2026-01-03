@@ -265,6 +265,7 @@ export const translations = {
         noItemsFound: 'لا توجد أصناف',
         receiptNumber: 'رقم الفاتورة',
         useCustomerCredit: 'استخدام الرصيد المتاح للعميل',
+        editRestricted: 'لا يمكن تعديل عمليات من أيام سابقة',
     },
     en: {
         appName: 'Gunter',
@@ -538,5 +539,6 @@ export const translations = {
         noItemsFound: 'No Items Found',
         receiptNumber: 'Receipt #',
         useCustomerCredit: 'Apply Customer Credit',
+        editRestricted: 'Cannot edit operations from previous days',
     }
 };

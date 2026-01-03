@@ -908,6 +908,14 @@ const Operations = () => {
                                                 label: t('edit'),
                                                 icon: <Edit2 size={16} />,
                                                 onClick: () => {
+                                                    const opDate = op.timestamp.split('T')[0];
+                                                    const today = getLocalDateString();
+
+                                                    if (opDate !== today) {
+                                                        window.showToast?.(t('editRestricted'), 'warning');
+                                                        return;
+                                                    }
+
                                                     const performEdit = () => openEditModal(op);
                                                     if (settings?.security?.authOnEditOperation) {
                                                         window.requestAdminAuth?.(performEdit, t('identityConfirmEditOp'));
