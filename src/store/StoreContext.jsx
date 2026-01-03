@@ -340,9 +340,9 @@ export const StoreProvider = ({ children }) => {
     const addOperation = (op) => {
         // Enforce ID generation and prevent empty ID from op spreading
         const newOp = {
-            timestamp: new Date().toISOString(),
             ...op,
-            id: (op.id && op.id !== '') ? op.id : generateId('op')
+            timestamp: op.timestamp || new Date().toISOString(),
+            id: (op.id && String(op.id).trim() !== '') ? op.id : generateId('op')
         };
         setData(prev => {
             // Updated to handle multiple items
@@ -459,7 +459,7 @@ export const StoreProvider = ({ children }) => {
 
             return {
                 ...prev,
-                operations: prev.operations.map(o => o.id === id ? { ...o, ...updatedOp } : o),
+                operations: prev.operations.map(o => o.id === id ? { ...o, ...updatedOp, id } : o),
                 parts: finalParts,
                 customers: finalCustomers
             };

@@ -188,6 +188,9 @@ export const generateReceiptHtml = (op, settings) => {
                     <span><b>${labels.customer}:</b> ${op.customerName || (isAr ? 'عميل نقدي' : 'Cash Customer')}</span>
                 </div>
                 <div class="info-row">
+                    <span><b>${t('receiptNumber')}:</b> #${op.id ? String(op.id).replace(/[^0-9]/g, '').slice(0, 8) : '---'}</span>
+                </div>
+                <div class="info-row">
                     <span><b>${labels.status}:</b> ${paymentStatusText}</span>
                 </div>
             </div>

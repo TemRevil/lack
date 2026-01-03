@@ -10,6 +10,17 @@ const ReceiptModal = ({ show, onClose, operation, operationId }) => {
     // Resolve operation: either passed directly or found by ID
     const targetOperation = operation || (operationId ? operations.find(op => op.id === operationId) : null);
 
+    // Close on ESC
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && show) {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [show, onClose]);
+
     if (!show || !targetOperation) return null;
 
     return (

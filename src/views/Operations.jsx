@@ -371,11 +371,20 @@ const Operations = () => {
         const d = new Date(op.timestamp);
         const opDateString = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-        const matchesSearch = op.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (op.items || []).some(item => item.partName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (op.partName && op.partName.toLowerCase().includes(searchTerm.toLowerCase()));
+        // Check if search term is numeric or starts with # followed by numbers (likely searching for ID)
+        const isIdSearch = /^#?\d+$/.test(searchTerm.trim());
+        const searchId = searchTerm.trim().replace('#', '');
 
-        const matchesDate = !selectedDate || opDateString === selectedDate;
+        const matchesSearch =
+            op.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (op.items || []).some(item => item.partName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (op.partName && op.partName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (op.id && String(op.id).includes(searchId));
+
+        // If it's an ID search, ignore the date filter (search all days)
+        // Otherwise, enforce the selected date filter
+        const matchesDate = isIdSearch ? true : (!selectedDate || opDateString === selectedDate);
+
         return matchesSearch && matchesDate;
     }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -718,7 +727,7 @@ const Operations = () => {
         }
 
         if (isEditMode) {
-            updateOperation(editingOpId, opData);
+            updateOperation(editingOpId, { ...opData, id: editingOpId });
             window.showToast?.(t('updateOperationDetails'), 'success');
         } else {
             const now = new Date();

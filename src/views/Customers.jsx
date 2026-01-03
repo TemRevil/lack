@@ -101,16 +101,16 @@ const Customers = () => {
     const combinedHistory = selectedCustomer ? [
         ...operations.filter(op => op.customerId === selectedCustomer.id).map((op, idx) => ({
             id: op.id,
-            key: `op-${op.id || idx}`,
+            key: `op-${op.id || idx}-${op.timestamp}`,
             timestamp: op.timestamp,
-            label: `#${op.id ? op.id.replace(/[^0-9]/g, '').slice(0, 8) : '---'}`,
+            label: `#${op.id ? String(op.id).replace(/[^0-9]/g, '').slice(0, 8) : '---'}`,
             amount: op.price,
             paid: op.paidAmount,
             source: 'operation'
         })),
         ...transactions.filter(tx => tx.customerId === selectedCustomer.id).map((tx, idx) => ({
             id: tx.id,
-            key: `tx-${tx.id || idx}`,
+            key: `tx-${tx.id || idx}-${tx.timestamp}`,
             timestamp: tx.timestamp,
             label: tx.note,
             amount: tx.type === 'debt' ? tx.amount : 0,
@@ -301,38 +301,33 @@ const Customers = () => {
                         </thead>
                         <tbody>
                             {combinedHistory.length > 0 ? combinedHistory.map(item => (
-                                <tr>
+                                <tr key={item.key}>
                                     <td style={{ fontSize: 'var(--fs-xs)', opacity: 0.7 }}>
                                         {new Date(item.timestamp).toLocaleDateString(settings.language === 'ar' ? 'ar-EG' : 'en-US')}
                                     </td>
                                     <td className="font-medium" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            {item.label.split(/(#\d+)/g).map((part, i) => {
-                                                if (part.match(/^#\d+$/)) {
-                                                    const opId = part.substring(1);
-                                                    return (
-                                                        <span
-                                                            key={i}
-                                                            className="text-accent cursor-pointer hover:underline"
-                                                            style={{ fontWeight: 700, margin: '0 4px', textDecoration: 'underline' }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const op = operations.find(o => o.id === opId);
-                                                                if (op) {
-                                                                    setSelectedOpForReceipt(op);
-                                                                    setShowReceiptModal(true);
-                                                                } else {
-                                                                    window.showToast?.(t('noOperations') || 'Operation not found', 'warning');
-                                                                }
-                                                            }}
-                                                        >
-                                                            {part}
-                                                        </span>
-                                                    );
-                                                }
-                                                return <span key={i}>{part}</span>;
-                                            })}
-                                        </div>
+                                        {item.source === 'operation' ? (
+                                            <span
+                                                className="text-accent cursor-pointer hover:underline"
+                                                style={{ fontWeight: 700, textDecoration: 'underline' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Direct lookup using the full item.id
+                                                    const op = operations.find(o => o.id === item.id);
+                                                    if (op) {
+                                                        setSelectedOpForReceipt(op);
+                                                        setShowReceiptModal(true);
+                                                    } else {
+                                                        window.showToast?.(t('noOperations') || 'Operation not found', 'warning');
+                                                    }
+                                                }}
+                                            >
+                                                {item.label}
+                                            </span>
+                                        ) : (
+                                            <span>{item.label}</span>
+                                        )}
+
                                         {item.source === 'transaction' && (
                                             <button className="btn-icon text-danger" style={{ padding: '4px' }} onClick={() => {
                                                 const performDelete = () => {
